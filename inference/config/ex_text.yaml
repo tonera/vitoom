@@ -1,0 +1,82 @@
+service_id: "text"
+name: "Text Inference Service"
+type: "vllm"
+service_type: "text"
+
+# Overrides inference.yaml; Docker first-run writes compose-mapped VITOOM_TEXT_SUPERVISOR_URL.
+# supervisor_url: "http://192.168.31.163:9002"
+
+# Inference service listen address (not the ollama daemon).
+host: "127.0.0.1"
+port: 8003
+
+config:
+  # If set to a non-empty string, local path or Ollama tag resolution uses only this name, not task/session model_name.
+  # fixed_model: "Qwen3.6-35B-A3B-AWQ-4bit"
+  # fixed_family: "Qwen-text"
+  runtime:
+    # vllm | transformers | ollama
+    backend: "vllm"
+
+    # --- Shared parameters ---
+    # Context length (ollama: num_ctx; vllm: max_model_len).
+    max_model_len: 65536
+    # Per-turn completion cap: read only from this service YAML; when present, request/OpenAI max_tokens ignored.
+    # Empty or invalid value defaults to 2048. Remove key to use request params + engine default (vLLM was 1024).
+    max_tokens: 2048
+    trust_remote_code: true
+    # Thinking mode; overridable by task / session metadata.
+    enable_thinking: false
+    # Gemma 4 MTP (vLLM / transformers): model is relative to models_dir; disabled if not found.
+    # speculative_config:
+    #   method: mtp
+    #   model: gemma-4-31B-it-assistant
+    #   num_speculative_tokens: 4
+
+    # --- vLLM only ---
+    vllm:
+      tensor_parallel_size: 1
+      gpu_memory_utilization: 0.92
+      engine_kwargs:
+        safetensors_load_strategy: "eager"
+        load_format: "fastsafetensors"
+        max_num_batched_tokens: 4096
+        limit_mm_per_prompt:
+          image: 8
+          video: 1
+          audio: 0
+        enforce_eager: false
+
+    # --- transformers only ---
+    transformers:
+      dtype: "auto"
+      device_map: "cuda:0"
+      allow_cpu_offload: false
+      # DGX Spark / GB10: mmap + pageable many-small H2D is very slow; see docs/GB10.md
+      disable_mmap: true
+      pin_memory: auto
+      model_kwargs:
+        attn_implementation: "sdpa"
+        low_cpu_mem_usage: true
+
+    # --- ollama only ---
+    # Model dir layout: {models_dir}/{model_name}/ with main gguf + optional mmproj-*.gguf;
+    # use user Modelfile if present, else inferencer auto-generates and `ollama create` registers tag.
+    ollama:
+      # ollama daemon URL.
+      base_url: "http://127.0.0.1:11434"
+      # local_gguf=scan models_dir/{model_name} for local GGUF; tag=treat model_name as
+      # Ollama model name, e.g. qwen3.6:35b / qwen3:30b.
+      model_source: "tag"
+      # Only when model_source=tag; auto `ollama pull` if tag missing locally.
+      auto_pull: true
+      # Idle unload to free VRAM: 0=immediate, "-1"=keep loaded, "30m"=30 minutes.
+      keep_alive: "5m"
+      # -1=all layers on GPU; set layer count when VRAM tight (e.g. 35).
+      num_gpu: -1
+      # off=disable image/video; image=images only; image_and_video_frames=images + video frame extraction.
+      multimodal_mode: "image_and_video_frames"
+      # Default video frame params (only when multimodal_mode=image_and_video_frames).
+      video_frame_count: 4
+      video_sample_fps: 1.0
+      video_max_frames: 16

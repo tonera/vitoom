@@ -1,0 +1,74 @@
+# Global inference service configuration
+# Defines model/output directory paths and global database, API, WebSocket settings
+
+# Model files directory
+# At startup the inferencer joins model filenames with this path for full paths
+models_dir: "resources/models"
+
+# Weights directory (e.g. quantized transformer / text_encoder weights)
+weights_dir: "resources/weights"
+
+# LoRA files directory
+loras_dir: "resources/loras"
+
+# Output files directory (single directory, not split by type)
+outputs_dir: "resources/outputs"
+# Pipeline cache TTL (seconds)
+# - empty or 0: current behavior (release pipeline after each task, VRAM drops low)
+# - >0: enable LRU=1 pipeline cache (same model back-to-back reuses pipeline, much less load/GPU time)
+#   Cached pipeline is released automatically after no tasks for this duration.
+pipeline_cache_ttl_seconds: 0
+
+# Storage (results routed by request_params.storage: local | server | s3 | oss)
+storage:
+  default: "local"
+
+  # server direct upload: inferencer uploads to backend API (backend receiver TBD)
+  server:
+    upload_path: "/api/inference/upload"
+    timeout_seconds: 60
+    # Upload signing (optional): when enabled, inferencer sends signature in upload headers
+    # Backend must use the same secret to verify.
+    # - headers: X-Vitoom-Upload-Timestamp / X-Vitoom-Upload-Signature
+    # - algorithm: HMAC-SHA256(secret, "{ts}\\n{key}\\n{content_type}\\n")
+    auth:
+      secret: "F3FE1tDfhMfKBrwe4c59101"
+
+  # s3 direct upload: AK/SK written by admin UI into this config
+  s3:
+    endpoint: null          # e.g. "https://s3.amazonaws.com" or S3-compatible endpoint
+    region: null            # e.g. "ap-southeast-1"
+    bucket: ""
+    access_key_id: ""
+    secret_access_key: ""
+    public_base_url: null   # e.g. "https://{bucket}.s3.{region}.amazonaws.com"
+
+  # oss direct upload: AK/SK written by admin UI into this config
+  oss:
+    endpoint: ""            # e.g. "https://oss-cn-hangzhou.aliyuncs.com"
+    bucket: ""
+    access_key_id: ""
+    access_key_secret: ""
+    public_base_url: null   # e.g. "https://{bucket}.oss-cn-hangzhou.aliyuncs.com"
+
+# Database configuration
+# Note: inferencer no longer connects to DB directly; all data via WebSocket Server
+# Option 1: database URL (PostgreSQL/MySQL etc.)
+# database_url: "postgresql://user:password@localhost:5432/vitoom"
+
+# API backend (status reporting, output URL assembly, etc.)
+# 120.55.93.136
+api_base_url: "http://BACKEND_HOST:8888"
+# WebSocket Server (WS connection)
+ws_url: "ws://BACKEND_HOST:8888"
+# URL for Backend to reach this container's Supervisor Agent.
+# Multi-host: use Backend-reachable GPU host, e.g. "http://<gpu-host-ip>:9001".
+# Prefer per-service {service_id}.yaml (e.g. text.yaml); leave empty here, overridden by service config.
+supervisor_url: ""
+
+transport:
+  ingresses:
+    - type: "ws"
+  egresses:
+    - type: "ws"
+

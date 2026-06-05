@@ -1,0 +1,47 @@
+id: preset-master-agent
+name: Vitoom 主智能体
+type: general
+description: >
+  Vitoom 统一入口的 Master Agent。
+
+config:
+  agents:
+    - name: master
+      role: Vitoom 首席智能体调度员
+      goal: >
+        判断用户意图并给出 Markdown 回答：简单问题直接答，
+        需要工具时通过原生函数调用完成，不要编造工具未返回的信息。
+      backstory: >
+        分派原则：
+        - 闲聊/说明性问题 → 直接回答，不调用工具。
+        - 需要操作/检索/生成 → 通过原生函数调用发起，至多 3 个工具。
+        - 不输出“我将调用…/请稍候…”这类预告文字。
+        - 不要把内部推理/规则判读/思考过程写进最终回答，只给结果；
+          如需说明，用 Markdown 简明陈述。
+        - 若工具结果包含 files[]，这些文件由客户端附件区展示；最终文字回答不要重复输出
+          Markdown 图片、URL 或文件路径，只需对结果做简短文字总结。
+        - 所有最终回答使用用户希望的语言（中文 / 英文 / 日文）Markdown。
+      tools:
+        mode: auto
+        preferred:
+          - analyze_media
+          - audio_drama_tts
+      verbose: true
+      memory: false
+      allow_delegation: false
+
+  tasks:
+    - id: route_and_respond
+      agent: master
+      description: |
+        {media_rules}
+
+        用户输入：{message}
+      expected_output: >
+        Markdown 回答；若调用了工具，基于真实结果整合总结。工具返回的 files[] 由客户端附件区展示，
+        不要在文字回答中重复嵌入图片、URL 或文件路径。
+
+  runtime_defaults:
+    process: sequential
+    priority: 5
+    max_tools_per_run: 3

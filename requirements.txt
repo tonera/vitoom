@@ -1,0 +1,73 @@
+# FastAPI核心依赖
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+email-validator>=2.1.0  # 邮箱验证（Pydantic EmailStr需要）
+
+# 数据库
+sqlalchemy>=2.0.0
+alembic>=1.12.0  # 数据库迁移工具
+
+# 认证和安全
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.6
+
+# HTTP客户端
+httpx>=0.25.0
+aiohttp>=3.9.0
+aiofiles>=23.2.0  # 异步文件操作
+
+# WebSocket客户端
+websockets>=12.0
+
+# 工具库
+python-dateutil>=2.8.2
+pytz>=2023.3
+
+# 日志
+# logging是Python标准库
+
+# 配置文件解析
+pyyaml>=6.0.1
+
+# 其他工具
+python-dotenv>=1.0.0
+colorlog>=6.8.0  # 彩色日志输出
+
+# 对象存储（S3/OSS）
+boto3>=1.34.0
+
+# 系统监控
+psutil>=5.9.0
+
+# GPU监控（可选，如果系统没有GPU可以不安装）
+pynvml>=11.5.0
+
+# AI推理依赖
+diffusers>=0.21.0
+# Agent 编排依赖（CrewAI 需 Python >= 3.10）
+crewai==1.9.3; python_version >= "3.10"
+crewai-tools==1.9.3; python_version >= "3.10"
+tavily-python>=0.7.23
+pyarrow==23.0.1
+pillow>=10.0.0
+safetensors>=0.4.0  # 用于模型权重文件读取
+opencv-python<4.12
+# 部分二进制依赖仍按 NumPy 1.x ABI 构建；NumPy 2 可能触发 `_ARRAY_API not found`。
+numpy<2
+protobuf
+sentencepiece
+socksio
+markitdown[pdf,docx,xlsx,xls,pptx,outlook]
+# Keep compatible with crewai==1.9.3, which pins tokenizers~=0.20.3.
+transformers==4.46.3
+onnxruntime
+pymupdf==1.26.7
+
+# conda install -c conda-forge pandoc
+# brew install --cask libreoffice #用来转为pdf
+# Markdown→PDF：公开依赖 pandoc + tectonic（见 config/default.yaml agents.tools.document_to_pdf；无 tectonic 时可用本机 xelatex/pdflatex 兜底）
+# 下载预编译包https://github.com/tectonic-typesetting/tectonic/releases
+# conda install -c conda-forge llvmlite=0.44.0

@@ -1,0 +1,294 @@
+# Server configuration
+server:
+  host: "0.0.0.0"  # Listen address; 0.0.0.0 = all interfaces
+  port: 8888       # Listen port
+  debug: false     # Debug mode
+  reload: false    # Auto-reload (development)
+  # Public base URL for inferencers / clients on other hosts
+  # When empty: backend returns relative paths only (e.g. "/outputs/xxx.png"); caller supplies Host
+  # Examples:
+  #   "http://192.168.0.105:8888"
+  #   "https://demo.example.com"
+  public_base_url: ""
+
+  # LiveTalking avatar sidecar public URL (browser WebRTC + backend PCM WS)
+  # - Browser GET /api/avatar/status returns this; POST {url}/offer for signaling
+  # - Backend livetalking_client streams PCM via ws://{host}:{port}/avatar_stream
+  # - When empty: frontend shows avatar service offline (even if sidecar registered in
+  #   inference_services—backend has no network route to reach it)
+  # - Example (remote sidecar): "http://192.168.31.17:8014"
+  # - Example (same host): "http://127.0.0.1:8014"
+  livetalking_url: ""
+
+# Logging
+logging:
+  level: "INFO"    # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  color: true      # Colored console output only; file logs are plain text
+  file:
+    enabled: true
+    path: "logs/app.log"
+    max_bytes: 10485760  # 10MB
+    backup_count: 5
+    rotation: "size"     # size or time
+
+# Database
+database:
+  url: ""  # Database URL; empty uses SQLite
+  # PostgreSQL: postgresql://user:password@localhost:5432/vitoom
+  # MySQL: mysql+pymysql://user:password@localhost:3306/vitoom
+  # SQLite: sqlite:///resources/data/vitoom.db (default)
+
+# Models
+models:
+  storage_path: "resources/models"  # Model storage path
+  cloud:
+    api_key: ""      # Unified cloud API key (stored encrypted)
+    provider: ""     # Cloud provider: openai, anthropic, etc.
+    base_url: ""     # API base URL (optional)
+
+# Inference service
+inference:
+  # Signing for inferencer direct upload (/api/inference/upload), optional
+  # - empty: no verification (legacy compatible)
+  # - non-empty: inferencer must send X-Vitoom-Upload-Timestamp / X-Vitoom-Upload-Signature
+  upload_auth_secret: "F3FE1tDfhMfKBrwe4c59101"
+  upload_auth_max_skew_seconds: 600
+
+# Tasks
+tasks:
+  queue:
+    max_size: 1000       # Max queue size
+    max_workers: 2       # Max concurrent worker threads
+    timeout: 3600        # Task timeout (seconds)
+  max_concurrent: 2      # Deprecated; use queue.max_workers
+  timeout: 3600          # Deprecated; use queue.timeout
+  max_retries: 3         # Max retries
+  retry_delay: 5         # Retry delay (seconds)
+  priority_range:        # Priority range
+    min: 1
+    max: 10
+
+# Storage
+storage:
+  default: "server"  # Task/upload artifact storage (config only; API ignores storage field); inferencer also has local
+  local:
+    base_path: "resources/outputs"
+    # Output URL prefix:
+    # - Recommended: "/outputs" (same origin)
+    # - Absolute URL (e.g. "http://192.168.0.105:8888/outputs") returns cross-host accessible URLs
+    http_base_url: "/outputs"
+  s3:
+    endpoint: null          # e.g. "https://s3.amazonaws.com" or S3-compatible endpoint
+    region: null            # e.g. "ap-southeast-1"
+    bucket: ""
+    access_key_id: ""
+    secret_access_key: ""
+    public_base_url: null   # e.g. "https://{bucket}.s3.{region}.amazonaws.com"
+
+  oss:
+    endpoint: ""            # e.g. "https://oss-cn-hangzhou.aliyuncs.com"
+    bucket: ""
+    access_key_id: ""
+    access_key_secret: ""
+    public_base_url: null   # e.g. "https://{bucket}.oss-cn-hangzhou.aliyuncs.com"
+
+# Internationalization
+i18n:
+  default_language: "zh_CN"  # Default locale
+  supported_languages:      # Supported locales
+    - "zh_CN"  # Simplified Chinese
+    - "en_US"  # English
+    - "ja_JP"  # Japanese
+  fallback_language: "zh_CN"  # Fallback locale
+
+# Security
+security:
+  jwt:
+    secret_key: ""      # JWT secret (auto-generated on first start)
+    algorithm: "HS256"  # JWT algorithm
+    access_token_expire: 86400  # Access token TTL (seconds, default 24h)
+    refresh_token_expire: 604800  # Refresh token TTL (seconds, default 7d)
+  api_keys:
+    hmac_secret: ""     # API Key HMAC-SHA256 secret; falls back to JWT secret if empty
+  password:
+    min_length: 6       # Minimum password length
+    require_uppercase: false  # Require uppercase
+    require_lowercase: false  # Require lowercase
+    require_digits: false     # Require digits
+    require_special: false    # Require special characters
+  cors:
+    enabled: true
+    allow_origins: ["*"]  # Allowed origins; restrict in production
+    allow_methods: ["*"]
+    allow_headers: ["*"]
+
+# WebSocket
+websocket:
+  enabled: true
+  ping_interval: 30    # Ping interval (seconds)
+  ping_timeout: 10      # Ping timeout (seconds)
+
+# File upload
+upload:
+  max_size: 104857600   # Max file size (bytes, default 100MB)
+  allowed_extensions:   # Allowed extensions
+    image: [".jpg", ".jpeg", ".png", ".gif", ".webp"]
+    video: [".mp4", ".avi", ".mov", ".mkv"]
+    audio: [".mp3", ".wav", ".flac", ".ogg"]
+    document: [".pdf", ".doc", ".docx", ".txt"]
+
+# Knowledge base
+knowledge_base:
+  enabled: true
+  es:
+    url: "http://127.0.0.1:9200"
+    username: ""
+    password: ""
+    document_index: "kb_document_v1"
+    chunk_index: "kb_chunk_v1"
+    request_timeout_seconds: 30
+  source_organizer:
+    scan_roots: []
+    canonical_root: "resources/knowledge_sources"
+    manifest_path: "resources/knowledge_sources/manifest.jsonl"
+    scan_state_path: "resources/knowledge_sources/scan_state.json"
+    copy_files: true
+    move_files: false
+    skip_previously_scanned_dirs: true
+    low_confidence_threshold: 0.75
+  derived:
+    markdown_root: "resources/knowledge_sources_derived/markdown"
+    parse_meta_root: "resources/knowledge_sources_derived/parse_meta"
+  embedding:
+    enabled: true
+    backend: "onnx"
+    model_path: "resources/models/multilingual-e5-small-onnx"
+    dims: 384
+    timeout_ms: 300
+    batch_size: 32
+    query_cache_size: 1024
+  retrieval:
+    bm25_top_k: 80
+    vector_top_k: 50
+    vector_num_candidates: 200
+    rrf_k: 60
+    merged_top_k: 30
+  rerank:
+    enabled: true
+    backend: "rule"
+    top_n: 30
+    final_top_k: 8
+    timeout_seconds: 10
+  answer:
+    max_context_chars: 12000
+    include_sources: true
+    include_debug: false
+
+# Agents
+agents:
+  enabled: true
+  # Third-party agent API keys are loaded from the process environment, e.g. root .env in Docker.
+  recover_pending_tasks: false   # Resume incomplete agent tasks on startup; default off to avoid stray/test runs
+  default_model: "Qwen3.5-4B-AWQ-4bit"     # Default text model when /v1/chat, CrewAI, etc. omit model
+  max_conversation_length: 50  # Max conversation turns
+  llm:
+    model: ""            # CrewAI text model; empty falls back to agents.default_model or auto text model
+    base_url: ""         # Empty defaults to http://127.0.0.1:{port}/v1 on this backend
+    timeout_seconds: 120
+    internal_auth_token: "vitoom-agent-internal"
+    internal_user_id: "agent-system"
+    effective_user_header: "X-Vitoom-Effective-User-Id"
+  default_preset_agent_id: "preset-local-agent"
+  tool_selection:
+    enabled: true
+    strategy: "hybrid"
+    max_tools_per_run: 8
+    always_include: []
+    catalog_path: "config/agent_tools.yaml"
+    bm25_top_k: 100
+    vector_top_k: 50
+    embedding_enabled: true
+    embedding_backend: "onnx"
+    embedding_model_path: "resources/models/multilingual-e5-small-onnx"
+    embedding_timeout_ms: 60
+    query_cache_size: 512
+    fallback_to_bm25: true
+    rebuild_check_interval_seconds: 5
+    # When embedding_model_path is empty or model unavailable, hybrid falls back to BM25-only.
+    # min_ratio_of_top filters long-tail noise below the top score band.
+    min_score: 0.005
+    min_ratio_of_top: 0.35
+  business_queries:
+    hr:
+      # HR queries use unified retrieval planner and Elasticsearch backend
+      es_url: "http://127.0.0.1:9200"
+      es_username: ""
+      es_password: ""
+      employee_index: "hr_employee_v1"
+      resume_chunk_index: "hr_resume_chunk_v1"
+      resume_asset_index: "hr_resume_asset_v1"
+      vector_enabled: false
+      request_timeout_seconds: 30
+      planner_timeout_seconds: 30
+      max_limit: 100
+      max_aggregation_buckets: 100
+      dsl_max_limit: 100
+      dsl_max_aggregation_buckets: 100
+  tools:
+    image_generator:
+      # Timeout waiting for inferencer (default 200s)
+      default_timeout_seconds: 200
+      # Default model when caller omits model
+      default_model_name: "FLUX.2-klein-9B-Nunchaku"
+      # Default num_inference_steps when omitted
+      default_num_inference_steps: 8
+      # Default guidance_scale when omitted
+      default_guidance_scale: 0
+    image_editor:
+      # image_editor (edit / img2img) inferencer wait timeout
+      default_timeout_seconds: 240
+      # Default edit model (FLUX family) when omitted
+      default_model_name: "FLUX.2-klein-9B-Nunchaku"
+    video_generator:
+      # video_generator inferencer wait timeout (default 600s; video jobs are longer)
+      default_timeout_seconds: 600
+      # Default model when omitted
+      default_model_name: "TurboWan2.1-T2V-1.3B-480P"
+    audio_asr:
+      # audio_asr (speech-to-text) inferencer wait timeout
+      default_timeout_seconds: 180
+      # Note: audio_asr has no default model here.
+      # - If inference/config/*.yaml sets fixed_model, caller may omit model_name;
+      #   dispatch routes to the pinned service.
+      # - Without pin, caller must pass model_name or the task is rejected.
+    audio_tts:
+      # audio_tts (text-to-speech) inferencer wait timeout
+      default_timeout_seconds: 240
+      # Note: audio_tts has no default model (no default_model_name / default_models).
+      # Same rules as audio_asr: fixed_model on inferencer allows empty; otherwise required.
+    translate:
+      # Default model when /v1/tasks task_type=translate omits load_name
+      default_model_name: "translategemma-4b-it"
+      # Fallback when models table has no family (normally register family=TranslateGemma)
+      default_family: "TranslateGemma"
+    document_to_markdown:
+      # document_to_markdown total timeout; PDF via mini OCR shares this cap
+      default_timeout_seconds: 600
+      # Mini OCR model for PDF path
+      pdf_model_name: "GLM-OCR"
+    document_to_pdf:
+      # document_to_pdf total timeout
+      default_timeout_seconds: 300
+      # Replacement font when document reports missing font
+      default_font: "PingFang SC"
+  openclaw:
+    enabled: false
+    base_url: "http://127.0.0.1:18789"
+    token: ""
+    timeout_seconds: 30
+    allowed_tools:
+      - "sessions_list"
+      - "browser_snapshot"
+      - "browser_search"
+    default_preset_agent_id: "preset-openclaw-agent"

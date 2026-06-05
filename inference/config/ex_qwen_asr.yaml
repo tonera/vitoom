@@ -1,0 +1,43 @@
+service_id: "qwen_asr"
+name: "Qwen ASR Inference Service"
+type: "audio"
+service_type: "audio"
+
+host: "127.0.0.1"
+port: 8011
+
+config:
+  # capabilities: sub-capabilities this audio instance exposes ("tts" / "asr" etc.).
+  #   - Required list for audio services; multiple entries allowed (e.g. future ["tts", "asr"]).
+  #   - Backend dispatch filters by capability on pin path (empty load_name), avoiding TTS
+  #     requests randomly hitting ASR (and vice versa).
+  #   - Consistency with fixed_family runtime: "tts" requires (qwen_tts, voxcpm);
+  #     "asr" requires (qwen_asr) etc.; validated at startup.
+  capabilities: ["asr"]
+  # supported_models: static list of models this family can theoretically run.
+  # When fixed_model is set non-empty:
+  #   - Weights dir fixed to {models_dir}/{fixed_model}, not from task load_name;
+  #   - fixed_family must be set (runtime path), else startup validation fails;
+  #   - fixed_model must be in supported_models;
+  #   - Pin mode dispatch only routes to fixed_model; other supported_models are
+  #     "not served by this instance currently".
+  fixed_model: "Qwen3-ASR-0.6B"
+  fixed_family: "Qwen-asr"
+  supported_models:
+    - "Qwen3-ASR-0.6B"
+    - "Qwen3-ASR-1.7B"
+  runtime:
+    # Only vllm supports true streaming
+    backend: "vllm"
+    # timestamps=true needs forced aligner. If downloaded under models_dir/weights_dir,
+    # set to "Qwen3-ForcedAligner-0.6B" or an absolute local path.
+    forced_aligner: "Qwen3-ForcedAligner-0.6B"
+    # vLLM path: Qwen3ASRModel.LLM and streaming session params (sibling to backend)
+    vllm:
+      gpu_memory_utilization: 0.3
+      max_model_len: 4096
+      enforce_eager: false
+      streaming:
+        unfixed_chunk_num: 2
+        unfixed_token_num: 8
+        chunk_size_sec: 1.5

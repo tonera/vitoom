@@ -1,0 +1,2 @@
+# LiveTalking avatar service dependencies.
+-r /app/inference/avatar/livetalking/requirements.txt

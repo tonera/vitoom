@@ -1,0 +1,22 @@
+service_id: download
+# download worker service_type: backend dispatch match (status=running && service_type=download)
+service_type: download
+
+# Engine / implementation type (backend syncs config.type to inference_services.type)
+type: download
+
+# Optional: display / logs only
+name: Download Worker 200
+
+# Extra config (reported to backend as config)
+config:
+  # Capability declaration (optional, for scheduling / debugging)
+  capabilities:
+    - huggingface
+    - modelscope
+    - civitai
+
+  # Civitai private token (inferencer config only, not stored in backend)
+  # Replace with your own token
+  civitai_token: ""
+

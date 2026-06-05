@@ -1,0 +1,2 @@
+# Text service dependencies.
+-r /app/inference/text/requirements.txt

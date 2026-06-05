@@ -1,0 +1,2 @@
+# Qwen ASR service dependencies.
+-r /app/inference/audio/requirements-qwenasr.txt

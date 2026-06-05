@@ -1,0 +1,38 @@
+# syntax=docker/dockerfile:1.7
+ARG VITOOM_PYTHON_BASE_IMAGE=vitoom-python-runtime:py3.11
+FROM ${VITOOM_PYTHON_BASE_IMAGE}
+
+ARG PIP_INDEX_URL=
+ARG TORCH_INDEX_URL=
+ARG TORCH_EXTRA_INDEX_URL=
+ARG TORCH_VERSION=2.11.0
+ARG TORCHVISION_VERSION=0.26.0
+ARG TORCHAUDIO_VERSION=2.11.0
+ARG TORCH_WHEEL_CACHE_ID=vitoom-torch-wheel-cache
+
+RUN --mount=type=cache,id=vitoom-pip-cache,target=/root/.cache/pip,sharing=locked \
+    --mount=type=cache,id=${TORCH_WHEEL_CACHE_ID},target=/opt/vitoom-wheelhouse,sharing=locked \
+    set -eux; \
+    if [ -n "$PIP_INDEX_URL" ]; then \
+        python -m pip config set global.index-url "$PIP_INDEX_URL"; \
+    fi; \
+    mkdir -p /opt/vitoom-wheelhouse; \
+    torch_spec="torch==${TORCH_VERSION}"; \
+    torchvision_spec="torchvision==${TORCHVISION_VERSION}"; \
+    torchaudio_spec="torchaudio==${TORCHAUDIO_VERSION}"; \
+    torch_extra_index_url="${TORCH_EXTRA_INDEX_URL:-${PIP_INDEX_URL:-https://pypi.org/simple}}"; \
+    if [ -n "$TORCH_INDEX_URL" ]; then \
+        python -m pip download --dest /opt/vitoom-wheelhouse --index-url "$TORCH_INDEX_URL" --extra-index-url "$torch_extra_index_url" "$torch_spec" "$torchvision_spec" "$torchaudio_spec"; \
+    else \
+        python -m pip download --dest /opt/vitoom-wheelhouse "$torch_spec" "$torchvision_spec" "$torchaudio_spec"; \
+    fi; \
+    python -m pip install --no-index --find-links /opt/vitoom-wheelhouse "$torch_spec" "$torchvision_spec" "$torchaudio_spec"; \
+    python - <<'PY'
+import torch
+import torchvision
+import torchaudio
+
+print("torch", torch.__version__)
+print("torchvision", torchvision.__version__)
+print("torchaudio", torchaudio.__version__)
+PY

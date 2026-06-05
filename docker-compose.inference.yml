@@ -1,0 +1,241 @@
+# Dev/build compose. Runtime services join external vitoom-net (create it via: docker compose up -d backend).
+# Override VITOOM_BACKEND_URL=http://host.docker.internal:8888 if Backend runs on the host, not in Docker.
+
+x-inference-environment: &inference-environment
+  VITOOM_BACKEND_URL: ${VITOOM_BACKEND_URL:-http://vitoom-backend:${VITOOM_SERVER_PORT:-8888}}
+  VITOOM_WS_URL: ${VITOOM_WS_URL:-ws://vitoom-backend:${VITOOM_SERVER_PORT:-8888}}
+  VITOOM_INFERENCE_UPLOAD_AUTH_SECRET: ${VITOOM_INFERENCE_UPLOAD_AUTH_SECRET:-}
+  VITOOM_SUPERVISOR_AGENT_PORT: ${VITOOM_SUPERVISOR_AGENT_PORT:-9001}
+  VITOOM_SUPERVISOR_URL: ${VITOOM_SUPERVISOR_URL:-}
+  VITOOM_OVERWRITE_CONFIG: ${VITOOM_OVERWRITE_CONFIG:-0}
+
+services:
+  python-runtime:
+    image: vitoom-python-runtime:py3.11
+    profiles:
+      - build-base
+    build:
+      context: .
+      dockerfile: docker/inference/base/Dockerfile.python-runtime
+      args:
+        APT_MIRROR: ${APT_MIRROR:-}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+
+  torch-runtime:
+    image: ${VITOOM_TORCH_BASE_IMAGE:-vitoom-torch-runtime:2.11-py3.11-cu130}
+    profiles:
+      - build-base
+    build:
+      context: .
+      dockerfile: docker/inference/base/Dockerfile.torch-runtime
+      args:
+        VITOOM_PYTHON_BASE_IMAGE: ${VITOOM_PYTHON_BASE_IMAGE:-vitoom-python-runtime:py3.11}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-}
+        TORCH_EXTRA_INDEX_URL: ${TORCH_EXTRA_INDEX_URL:-}
+        TORCH_VERSION: ${TORCH_VERSION:-2.11.0}
+        TORCHVISION_VERSION: ${TORCHVISION_VERSION:-0.26.0}
+        TORCHAUDIO_VERSION: ${TORCHAUDIO_VERSION:-2.11.0}
+        TORCH_WHEEL_CACHE_ID: ${TORCH_WHEEL_CACHE_ID:-vitoom-torch-wheel-cache-cu130}
+
+  visual:
+    image: ${VITOOM_VISUAL_IMAGE:-vitoom-inference-visual:experimental-cu130-torch2.11-${VITOOM_TARGET_ARCH:-x86_64}}
+    build:
+      context: .
+      dockerfile: docker/inference/services/visual/Dockerfile
+      args:
+        VITOOM_TORCH_BASE_IMAGE: ${VITOOM_TORCH_BASE_IMAGE:-vitoom-torch-runtime:2.11-py3.11-cu130}
+        VITOOM_TARGET_ARCH: ${VITOOM_TARGET_ARCH:-x86_64}
+        APT_MIRROR: ${APT_MIRROR:-}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu130}
+    container_name: vitoom-inference-visual
+    restart: unless-stopped
+    gpus: all
+    shm_size: "16gb"
+    ipc: host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      <<: *inference-environment
+      VITOOM_PIPELINE_CACHE_TTL_SECONDS: ${VITOOM_PIPELINE_CACHE_TTL_SECONDS:-0}
+    volumes:
+      - ./resources:/app/resources
+      - ./config/default.yaml:/app/config/default.yaml:ro
+      - ./data/inference/config:/app/inference/config
+      - ./data/inference/cache/visual/triton:/root/.triton/cache
+      - ./logs/inference/visual:/app/logs
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:${VITOOM_SUPERVISOR_AGENT_PORT:-9001}/health || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vitoom-net
+
+  text:
+    image: ${VITOOM_TEXT_IMAGE:-vitoom-inference-text:experimental-cu130-torch2.11-${VITOOM_TARGET_ARCH:-x86_64}}
+    build:
+      context: .
+      dockerfile: docker/inference/services/text/Dockerfile
+      args:
+        VITOOM_TORCH_BASE_IMAGE: ${VITOOM_TORCH_BASE_IMAGE:-vitoom-torch-runtime:2.11-py3.11-cu130}
+        APT_MIRROR: ${APT_MIRROR:-}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu130}
+        VLLM_VERSION: ${VLLM_VERSION:-0.21.0}
+        CUDA_KEYRING_VERSION: ${CUDA_KEYRING_VERSION:-1.1-1}
+        CUDA_TOOLKIT_PACKAGE_SUFFIX: ${TEXT_CUDA_TOOLKIT_PACKAGE_SUFFIX:-}
+    container_name: vitoom-inference-text
+    restart: unless-stopped
+    gpus: all
+    shm_size: "16gb"
+    ipc: host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      <<: *inference-environment
+    volumes:
+      - ./resources:/app/resources
+      - ./config/default.yaml:/app/config/default.yaml:ro
+      - ./data/inference/config:/app/inference/config
+      - ./data/inference/cache/text/flashinfer:/root/.cache/flashinfer
+      - ./data/inference/cache/text/vllm:/root/.cache/vllm
+      - ./logs/inference/text:/app/logs
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:${VITOOM_SUPERVISOR_AGENT_PORT:-9001}/health || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vitoom-net
+
+  mini:
+    image: ${VITOOM_MINI_IMAGE:-vitoom-inference-mini:experimental-cu130-torch2.11-${VITOOM_TARGET_ARCH:-x86_64}}
+    build:
+      context: .
+      dockerfile: docker/inference/services/mini/Dockerfile
+      args:
+        VITOOM_TORCH_BASE_IMAGE: ${VITOOM_TORCH_BASE_IMAGE:-vitoom-torch-runtime:2.11-py3.11-cu130}
+        VITOOM_TARGET_ARCH: ${VITOOM_TARGET_ARCH:-x86_64}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu130}
+    container_name: vitoom-inference-mini
+    restart: unless-stopped
+    gpus: all
+    shm_size: "16gb"
+    ipc: host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      <<: *inference-environment
+      VITOOM_PIPELINE_CACHE_TTL_SECONDS: ${VITOOM_PIPELINE_CACHE_TTL_SECONDS:-0}
+    volumes:
+      - ./resources:/app/resources
+      - ./config/default.yaml:/app/config/default.yaml:ro
+      - ./data/inference/config:/app/inference/config
+      - ./logs/inference/mini:/app/logs
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:${VITOOM_SUPERVISOR_AGENT_PORT:-9001}/health || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vitoom-net
+
+  audio:
+    image: ${VITOOM_AUDIO_IMAGE:-vitoom-inference-audio:experimental-cu130-torch2.9.1-${VITOOM_TARGET_ARCH:-x86_64}}
+    build:
+      context: .
+      dockerfile: docker/inference/services/audio/Dockerfile
+      args:
+        VITOOM_TORCH_BASE_IMAGE: ${VITOOM_AUDIO_TORCH_BASE_IMAGE:-vitoom-torch-runtime:2.9.1-py3.11-cu130}
+        VITOOM_TARGET_ARCH: ${VITOOM_TARGET_ARCH:-x86_64}
+        APT_MIRROR: ${APT_MIRROR:-}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu130}
+        FLASHINFER_VERSION: ${AUDIO_FLASHINFER_VERSION:-0.5.3}
+        CUDA_KEYRING_VERSION: ${CUDA_KEYRING_VERSION:-1.1-1}
+        CUDA_TOOLKIT_PACKAGE_SUFFIX: ${AUDIO_CUDA_TOOLKIT_PACKAGE_SUFFIX:-}
+    container_name: vitoom-inference-audio
+    restart: unless-stopped
+    gpus: all
+    shm_size: "16gb"
+    ipc: host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      <<: *inference-environment
+    volumes:
+      - ./resources:/app/resources
+      - ./config/default.yaml:/app/config/default.yaml:ro
+      - ./data/inference/config:/app/inference/config
+      - ./data/inference/cache/audio/triton:/root/.triton/cache
+      - ./data/inference/cache/audio/vllm:/root/.cache/vllm
+      - ./data/inference/cache/audio/torch:/root/.cache/torch
+      - ./logs/inference/audio:/app/logs
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:${VITOOM_SUPERVISOR_AGENT_PORT:-9001}/health || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vitoom-net
+
+  download:
+    image: vitoom-inference-download:experimental
+    build:
+      context: .
+      dockerfile: docker/inference/services/download/Dockerfile
+      args:
+        VITOOM_PYTHON_BASE_IMAGE: ${VITOOM_PYTHON_BASE_IMAGE:-vitoom-python-runtime:py3.11}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+    container_name: vitoom-inference-download
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      <<: *inference-environment
+      VITOOM_CIVITAI_TOKEN: ${VITOOM_CIVITAI_TOKEN:-}
+    volumes:
+      - ./resources:/app/resources
+      - ./config/default.yaml:/app/config/default.yaml:ro
+      - ./data/inference/config:/app/inference/config
+      - ./logs/inference/download:/app/logs
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:${VITOOM_SUPERVISOR_AGENT_PORT:-9001}/health || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vitoom-net
+
+networks:
+  vitoom-net:
+    external: true
+    name: vitoom-net

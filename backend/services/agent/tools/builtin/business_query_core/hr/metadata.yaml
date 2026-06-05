@@ -1,0 +1,830 @@
+domain: hr
+entities:
+- employee
+- resume
+supported_intents:
+- aggregation
+- attribute_lookup
+- clarify
+- document_fetch
+- hybrid_search
+- list
+- quality_check
+- relationship
+supported_metrics:
+- avg
+- count
+- max
+- min
+- ratio
+- sum
+supported_sort_directions:
+- asc
+- desc
+fields:
+  employee_id:
+    type: keyword
+    aliases:
+    - 员工 ID
+    - 员工编号
+    - 工号
+    filterable: true
+    aggregatable: true
+  name:
+    type: text
+    aliases:
+    - 姓名
+    - 员工姓名
+    filterable: true
+    aggregatable: false
+  email:
+    type: keyword
+    aliases:
+    - 邮箱
+    - 邮件
+    filterable: true
+    aggregatable: false
+  gender:
+    type: keyword
+    aliases:
+    - 性别
+    - 男女
+    filterable: true
+    aggregatable: true
+  marital_status:
+    type: keyword
+    aliases:
+    - 婚姻
+    - 已婚
+    - 未婚
+    filterable: true
+    aggregatable: true
+  office_city:
+    type: keyword
+    aliases:
+    - 城市
+    - 办公室
+    - 工作地
+    - base location
+    filterable: true
+    aggregatable: true
+  office_location:
+    type: keyword
+    aliases:
+    - 办公地点
+    - 办公室位置
+    filterable: true
+    aggregatable: true
+  country_region:
+    type: keyword
+    aliases:
+    - 国家
+    - 地区
+    - 国家地区
+    filterable: true
+    aggregatable: true
+  timezone:
+    type: keyword
+    aliases:
+    - 时区
+    - timezone
+    filterable: true
+    aggregatable: true
+  department_code:
+    type: keyword
+    aliases:
+    - 部门编码
+    - 部门代码
+    - 部门
+    filterable: true
+    aggregatable: true
+  department_name:
+    type: text
+    aliases:
+    - 部门名称
+    - 部门
+    filterable: true
+    aggregatable: false
+  job_title:
+    type: text
+    aliases:
+    - 岗位
+    - 职位
+    - 职务
+    - title
+    filterable: true
+    aggregatable: false
+  job_family:
+    type: keyword
+    aliases:
+    - 岗位族
+    - 职能族
+    filterable: true
+    aggregatable: true
+  grade:
+    type: keyword
+    aliases:
+    - 职级
+    - 级别
+    - grade
+    filterable: true
+    aggregatable: true
+  grade_level:
+    type: integer
+    aliases:
+    - 职级数值
+    - 级别数字
+    filterable: true
+    aggregatable: true
+  pay_scale_group:
+    type: keyword
+    aliases:
+    - 薪酬等级
+    - Pay Scale Group
+    - PSG
+    filterable: true
+    aggregatable: true
+  fte:
+    type: float
+    aliases:
+    - FTE
+    - 全职当量
+    filterable: true
+    aggregatable: true
+  standard_hours:
+    type: integer
+    aliases:
+    - 标准工时
+    - 工时
+    filterable: true
+    aggregatable: true
+  employment_type:
+    type: keyword
+    aliases:
+    - 雇佣类型
+    - 用工类型
+    - 固定职工
+    - 计时工
+    filterable: true
+    aggregatable: true
+  employment_status:
+    type: keyword
+    aliases:
+    - 在职状态
+    - 员工状态
+    - 在职
+    - 离职
+    filterable: true
+    aggregatable: true
+  hire_date:
+    type: date
+    aliases:
+    - 入职日期
+    - 加入日期
+    - 入职时间
+    - 入职年份
+    - 哪一年入职
+    - hire date
+    filterable: true
+    aggregatable: true
+  termination_date:
+    type: date
+    aliases:
+    - 离职日期
+    - 终止日期
+    filterable: true
+    aggregatable: true
+  manager_id:
+    type: keyword
+    aliases:
+    - 经理 ID
+    - 上级编号
+    - 直属经理
+    filterable: true
+    aggregatable: true
+  performance_rating:
+    type: keyword
+    aliases:
+    - 绩效
+    - 绩效评级
+    filterable: true
+    aggregatable: true
+  attrition_risk:
+    type: keyword
+    aliases:
+    - 流失风险
+    - 离职风险
+    - 离职风险等级
+    - resignation risk
+    filterable: true
+    aggregatable: true
+  high_potential:
+    type: boolean
+    aliases:
+    - 高潜
+    - 高潜力
+    filterable: true
+    aggregatable: true
+  key_position:
+    type: boolean
+    aliases:
+    - 关键岗位
+    - 关键人才
+    - 影响度高
+    - keyPosition
+    filterable: true
+    aggregatable: true
+  future_leader:
+    type: boolean
+    aliases:
+    - 未来领袖
+    - futureLeader
+    filterable: true
+    aggregatable: true
+  promotion_likelihood:
+    type: keyword
+    aliases:
+    - 晋升可能
+    - 升职可能
+    filterable: true
+    aggregatable: true
+  skills:
+    type: keyword
+    aliases:
+    - 技能
+    - skills
+    filterable: true
+    aggregatable: true
+  project_keywords:
+    type: keyword
+    aliases:
+    - 项目关键词
+    - 项目
+    filterable: true
+    aggregatable: true
+  resume_summary:
+    type: text
+    aliases:
+    - 简历摘要
+    - 履历摘要
+    filterable: false
+    aggregatable: false
+  tenure_years:
+    type: float
+    aliases:
+    - 司龄
+    - 入职年限
+    - 入职几年
+    - 入职多久
+    - 工作年限
+    - tenure
+    - years of service
+    - length of service
+    filterable: true
+    aggregatable: false
+    computed: true
+    computed_from: hire_date
+    compile:
+      kind: years_since_date
+      source_field: hire_date
+enum_aliases:
+  在职: active
+  当前员工: active
+  现有员工: active
+  离职: terminated
+  已解雇: terminated
+  退休: retired
+  已退休: retired
+  是: true
+  否: false
+metric_aliases:
+  人数: count
+  员工数: count
+  headcount: count
+  平均: avg
+  占比: ratio
+  比例: ratio
+business_rules:
+  executive:
+    description: 高管/VP/经理级
+    filters:
+    - field: grade
+      op: '>='
+      value: GR-10
+  active_employee:
+    description: 在职员工
+    filters:
+    - field: employment_status
+      op: '='
+      value: active
+  us_timezone:
+    description: 美国时区员工
+    filters:
+    - field: country_region
+      op: '='
+      value: 美国
+  key_talent:
+    description: 关键人才
+    filters:
+    - field: key_position
+      op: '='
+      value: true
+  high_risk_key_talent:
+    description: 有离职风险且影响度高的关键人才
+    filters:
+    - field: attrition_risk
+      op: '='
+      value: 高
+    - field: key_position
+      op: '='
+      value: true
+quality_rules:
+  invalid_manager_id: 员工 manager_id 不存在于员工表
+  invalid_email: 邮箱格式不符合基本规则
+  fte_hours_conflict: FTE 为 0.5 但标准工时为 40
+  duplicate_employee_id: 同一员工 ID 出现多条原始记录
+  missing_critical_fields: 部门、职级等关键字段缺失
+  all_quality_checks: 运行全部 数据质量检查
+field_type_operators:
+  keyword:
+  - '='
+  - '!='
+  - in
+  - not_in
+  text:
+  - '='
+  - contains
+  - match
+  integer:
+  - '='
+  - '!='
+  - '>'
+  - '>='
+  - <
+  - <=
+  - in
+  float:
+  - '='
+  - '!='
+  - '>'
+  - '>='
+  - <
+  - <=
+  - in
+  date:
+  - '='
+  - '>='
+  - '>'
+  - <=
+  - <
+  - range_year
+  boolean:
+  - '='
+semantic:
+  business_rule_aliases:
+    executive:
+    - 高管
+    - VP
+    - 经理级
+    - 高阶管理者
+    - 高级管理层
+    active_employee:
+    - 在职员工
+    - 当前员工
+    - 现有员工
+    - 目前还在职
+    - 当前在岗
+    us_timezone:
+    - 美国时区
+    - 美国员工
+    - 美国地区
+    - 北美时区
+    key_talent:
+    - 关键人才
+    - 关键岗位
+    - 关键人员
+    - 关键员工
+    - impact high
+    high_risk_key_talent:
+    - 高流失风险关键人才
+    - 离职风险高的关键人才
+    - 流失风险高的关键岗位
+    - 有离职风险且影响度高
+    - 保留风险高的关键人才
+    - 保留风险高的关键员工
+  quality_rule_aliases:
+    invalid_manager_id:
+    - 经理 ID 不存在
+    - 经理ID不存在
+    - 上级编号无效
+    - 没有合法经理
+    - 找不到直属经理
+    - manager 不存在
+    invalid_email:
+    - 邮箱格式不对
+    - 邮箱格式不规范
+    - 邮箱异常
+    - 邮箱不合法
+    - 邮件地址异常
+    fte_hours_conflict:
+    - FTE 0.5 但标准工时 40
+    - 半职标准工时 40
+    - FTE 为 0.5 标准工时为 40
+    duplicate_employee_id:
+    - 员工 ID 重复
+    - 员工编号重复
+    - 工号重复
+    - 同一员工编号多条
+    - 重复员工 ID
+    missing_critical_fields:
+    - 缺失关键字段
+    - 缺少关键字段
+    - 部门职级缺失
+    - 关键信息不完整
+  intent_aliases:
+    document_fetch:
+    - 简历
+    - 履历
+    - 附件
+    - 下载
+    - 资料发给我
+    quality_check:
+    - 数据质量
+    - 格式不对
+    - 格式不规范
+    - 异常
+    - 重复
+    - 缺失
+    - 不合法
+    - 无效
+    relationship:
+    - 直接下属
+    - 下属
+    - 汇报给
+    - 向谁汇报
+    - 带多少人
+    - 底下有几个人
+    - 经理关系
+    aggregation:
+    - 多少
+    - 几个人
+    - 人数
+    - 员工数
+    - headcount
+    - 分布
+    - 比例
+    - 占比
+    - 平均
+    attribute_lookup:
+    - 工号
+    - 员工编号
+    - 邮箱
+    - 基本信息
+    - 员工信息
+    - 个人信息
+    - 详细信息
+    - 哪个部门
+    - 什么部门
+    - 职位
+    - 岗位
+    - 经理是谁
+    - 上级是谁
+    - 主管是谁
+    - 汇报给谁
+    - 这个员工是谁
+    - 员工是谁
+    - 在哪里办公
+    - 办公地点
+    - 入职多久
+    - 入职几年
+    - 司龄
+    - 入职年限
+    - 哪一年入职
+    list:
+    - 哪些人
+    - 有哪些人
+    - 列出
+    - 名单
+    - 都有谁
+    - 都是谁
+    - 员工列表
+  value_hints:
+    office_city:
+    - alias: 北京
+      value: 北京
+    - alias: Beijing
+      value: 北京
+    - alias: 上海
+      value: 上海
+    - alias: Shanghai
+      value: 上海
+    - alias: 深圳
+      value: 深圳
+    - alias: Shenzhen
+      value: 深圳
+    - alias: 纽约
+      value: 纽约
+    - alias: 旧金山
+      value: 旧金山
+    - alias: San Francisco
+      value: 旧金山
+    - alias: SF
+      value: 旧金山
+    - alias: New York
+      value: 纽约
+    department_code:
+    - alias: 制造
+      value: MANU
+    - alias: MANU
+      value: MANU
+    - alias: 研发
+      value: RND
+    - alias: RND
+      value: RND
+    - alias: 销售
+      value: SALES
+    - alias: SALES
+      value: SALES
+    - alias: 财务
+      value: FIN
+    - alias: FIN
+      value: FIN
+    - alias: 人力
+      value: HR
+    - alias: HR
+      value: HR
+    - alias: 管理
+      value: EXEC
+    - alias: EXEC
+      value: EXEC
+    employment_status:
+    - alias: 在职
+      value: active
+    - alias: 当前员工
+      value: active
+    - alias: 现有员工
+      value: active
+    - alias: 当前在岗
+      value: active
+    - alias: 离职
+      value: terminated
+    - alias: 已解雇
+      value: terminated
+    - alias: 退休
+      value: retired
+    gender:
+    - alias: 女性
+      value: 女
+    - alias: 女员工
+      value: 女
+    - alias: 男性
+      value: 男
+    - alias: 男员工
+      value: 男
+    performance_rating:
+    - alias: 绩效高
+      value: 高
+    - alias: 高绩效
+      value: 高
+    - alias: high
+      value: 高
+    - alias: high performance
+      value: 高
+    - alias: high performer
+      value: 高
+    - alias: 绩效中
+      value: 中
+    - alias: 绩效为中
+      value: 中
+    - alias: 中绩效
+      value: 中
+    - alias: 绩效评级中
+      value: 中
+    - alias: medium
+      value: 中
+    - alias: average
+      value: 中
+    - alias: middle
+      value: 中
+    - alias: 绩效低
+      value: 低
+    - alias: 低绩效
+      value: 低
+    - alias: low
+      value: 低
+    - alias: low performance
+      value: 低
+    attrition_risk:
+    - alias: 流失风险高
+      value: 高
+    - alias: 离职风险高
+      value: 高
+    - alias: 保留风险高
+      value: 高
+    - alias: attrition high
+      value: 高
+    high_potential:
+    - alias: 高潜
+      value: true
+    - alias: 高潜力
+      value: true
+    key_position:
+    - alias: 关键岗位
+      value: true
+    - alias: 关键人才
+      value: true
+    - alias: 影响度高
+      value: true
+    - alias: 关键员工
+      value: true
+    future_leader:
+    - alias: 未来领袖
+      value: true
+    - alias: futureLeader
+      value: true
+    promotion_likelihood:
+    - alias: 很可能升职
+      value: 很可能
+    - alias: 很可能晋升
+      value: 很可能
+    timezone:
+    - alias: Asia/Shanghai
+      value: Asia/Shanghai
+    - alias: 上海时区
+      value: Asia/Shanghai
+    country_region:
+    - alias: 美国时区
+      value: 美国
+    - alias: 美国地区
+      value: 美国
+    - alias: 美国员工
+      value: 美国
+    fte:
+    - alias: FTE=1
+      value: 1.0
+    - alias: FTE = 1
+      value: 1.0
+    - alias: 全职
+      value: 1.0
+    - alias: FTE=0.5
+      value: 0.5
+    skills:
+    - alias: MES
+      value: MES
+    - alias: mes
+      value: MES
+    - alias: MES系统
+      value: MES
+    - alias: mes系统
+      value: MES
+    - alias: AI
+      value: AI
+    - alias: ai
+      value: AI
+    - alias: AI技能
+      value: AI
+    - alias: ai技能
+      value: AI
+    - alias: 人工智能
+      value: AI
+    - alias: FTE = 0.5
+      value: 0.5
+    standard_hours:
+    - alias: 标准工时为 40
+      value: 40
+    - alias: 标准工时 40
+      value: 40
+    - alias: 40 小时
+      value: 40
+    - alias: 40小时
+      value: 40
+    employment_type:
+    - alias: 计时工
+      value: 计时工
+    - alias: 固定职工
+      value: 固定职工
+  examples:
+  - tags:
+    - document_fetch
+    - name
+    query: Helen Wang 161 的简历给我
+    query_spec:
+      domain: hr
+      entity: employee
+      intent: document_fetch
+      subjects:
+      - type: employee_name
+        value: Helen Wang 161
+      limit: 1
+  - tags:
+    - business_rule
+    - high_risk_key_talent
+    - list
+    query: 有离职风险且影响度高的关键人才
+    query_spec:
+      domain: hr
+      entity: employee
+      intent: list
+      business_rule: high_risk_key_talent
+      filters:
+      - field: attrition_risk
+        op: '='
+        value: 高
+      - field: key_position
+        op: '='
+        value: true
+      limit: 20
+  - tags:
+    - attribute_lookup
+    - office_city
+    query: 张三在哪里办公？
+    query_spec:
+      domain: hr
+      entity: employee
+      intent: attribute_lookup
+      subjects:
+      - type: employee_name
+        value: 张三
+      select_fields:
+      - office_city
+      limit: 1
+  - tags:
+    - aggregation
+    - office_city
+    - headcount
+    query: 北京办公室有多少员工？
+    query_spec:
+      domain: hr
+      entity: employee
+      intent: aggregation
+      filters:
+      - field: office_city
+        op: '='
+        value: 北京
+      - field: employment_status
+        op: '='
+        value: active
+      metrics:
+      - type: count
+        field: employee_id
+      limit: 20
+  - tags:
+    - relationship
+    - direct_reports
+    query: James Kwok 有多少直接下属？
+    query_spec:
+      domain: hr
+      entity: employee
+      intent: relationship
+      relationship:
+        type: direct_reports
+      subjects:
+      - type: employee_name
+        value: James Kwok
+      limit: 20
+  - tags:
+    - quality_check
+    - invalid_manager_id
+    query: 哪些员工的经理 ID 不存在？
+    query_spec:
+      domain: hr
+      entity: employee
+      intent: quality_check
+      check: invalid_manager_id
+      limit: 20
+  - tags:
+    - aggregation
+    - group_by
+    - department_code
+    query: 深圳员工按部门分布
+    query_spec:
+      domain: hr
+      entity: employee
+      intent: aggregation
+      filters:
+      - field: office_city
+        op: '='
+        value: 深圳
+      group_by:
+      - department_code
+      metrics:
+      - type: count
+        field: employee_id
+      limit: 20
+  - tags:
+    - list
+    - active_employee
+    - office_city
+    query: 旧金山有哪些人？
+    query_spec:
+      domain: hr
+      entity: employee
+      intent: list
+      filters:
+      - field: office_city
+        op: '='
+        value: 旧金山
+      - field: employment_status
+        op: '='
+        value: active
+      limit: 100

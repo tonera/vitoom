@@ -1,0 +1,38 @@
+{
+  "_class_name": "Flux2Transformer2DModel",
+  "_diffusers_version": "0.36.0.dev0",
+  "_name_or_path": "/home/ozzy/Documents/diffusers/models/FLUX.2-dev",
+  "attention_head_dim": 128,
+  "axes_dims_rope": [
+    32,
+    32,
+    32,
+    32
+  ],
+  "eps": 1e-06,
+  "in_channels": 128,
+  "joint_attention_dim": 15360,
+  "mlp_ratio": 3.0,
+  "num_attention_heads": 48,
+  "num_layers": 8,
+  "num_single_layers": 48,
+  "out_channels": null,
+  "patch_size": 1,
+  "quantization_config": {
+    "_load_in_4bit": true,
+    "_load_in_8bit": false,
+    "bnb_4bit_compute_dtype": "bfloat16",
+    "bnb_4bit_quant_storage": "uint8",
+    "bnb_4bit_quant_type": "nf4",
+    "bnb_4bit_use_double_quant": false,
+    "llm_int8_enable_fp32_cpu_offload": false,
+    "llm_int8_has_fp16_weight": false,
+    "llm_int8_skip_modules": null,
+    "llm_int8_threshold": 6.0,
+    "load_in_4bit": true,
+    "load_in_8bit": false,
+    "quant_method": "bitsandbytes"
+  },
+  "rope_theta": 2000,
+  "timestep_guidance_channels": 256
+}

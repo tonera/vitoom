@@ -1,0 +1,200 @@
+@import "tailwindcss";
+
+:root {
+  /* Mixed Chinese/English UI font stack (macOS-first for CJK) */
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Microsoft YaHei",
+    "Noto Sans CJK SC",
+    "Noto Sans SC",
+    Arial,
+    sans-serif;
+
+  /* Slightly looser default line-height improves CJK readability */
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+html {
+  /* Slightly smaller base typography to fit more content */
+  font-size: 15px;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100%;
+  background: #ffffff;
+  color: #111827;
+  /* Prevent browser-level outer scrollbar; scroll should happen in content area */
+  overflow: hidden;
+}
+
+html.dark body {
+  background: #111827;
+  color: #f3f4f6;
+}
+
+#app {
+  min-height: 100%;
+}
+
+/* ---------- UI Tokens (pure CSS; no @apply to satisfy linters) ---------- */
+.vt-text-smooth {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.vt-surface {
+  background-color: #ffffff;
+  color: #111827; /* gray-900 */
+}
+
+html.dark .vt-surface {
+  background-color: #111827; /* gray-900 */
+  color: #f3f4f6; /* gray-100 */
+}
+
+.vt-card {
+  border-radius: 0.75rem; /* rounded-xl */
+  border: 1px solid rgba(229, 231, 235, 0.95); /* gray-200 */
+  background-color: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+html.dark .vt-card {
+  border-color: rgba(55, 65, 81, 0.7); /* gray-700/70 */
+  background-color: rgba(31, 41, 55, 0.55); /* gray-800/55 */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(8px);
+}
+
+.vt-card-muted {
+  border-radius: 0.75rem; /* rounded-xl */
+  border: 1px solid rgba(229, 231, 235, 0.9); /* gray-200 */
+  background-color: rgba(249, 250, 251, 0.85); /* gray-50 */
+}
+
+html.dark .vt-card-muted {
+  border-color: rgba(55, 65, 81, 0.6); /* gray-700/60 */
+  background-color: rgba(31, 41, 55, 0.35); /* gray-800/35 */
+}
+
+.vt-help {
+  font-size: 0.75rem; /* text-xs */
+  line-height: 1rem;
+  color: #6b7280; /* gray-500 */
+}
+
+html.dark .vt-help {
+  color: #9ca3af; /* gray-400 */
+}
+
+/* Light scrollbars for inner scroll containers */
+.vt-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.vt-scroll::-webkit-scrollbar-track {
+  background: rgba(243, 244, 246, 0.8);
+}
+.vt-scroll::-webkit-scrollbar-thumb {
+  background: rgba(209, 213, 219, 0.95);
+  border-radius: 999px;
+}
+.vt-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.95);
+}
+
+html.dark .vt-scroll::-webkit-scrollbar-track {
+  background: rgba(31, 41, 55, 0.6);
+}
+html.dark .vt-scroll::-webkit-scrollbar-thumb {
+  background: rgba(75, 85, 99, 0.9);
+}
+html.dark .vt-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(107, 114, 128, 0.95);
+}
+
+/* ---------- Top snack (global toast) ---------- */
+.vt-top-snack--default {
+  border-color: rgba(51, 65, 85, 0.9);
+  background-color: rgba(15, 23, 42, 0.96);
+  color: #f8fafc;
+  --tw-ring-color: rgba(51, 65, 85, 0.35);
+}
+
+html.dark .vt-top-snack--default {
+  border-color: rgba(148, 163, 184, 0.35);
+  background-color: rgba(241, 245, 249, 0.96);
+  color: #0f172a;
+  --tw-ring-color: rgba(148, 163, 184, 0.25);
+}
+
+.vt-top-snack--error {
+  border-color: rgba(248, 113, 113, 0.85);
+  background-color: rgba(254, 242, 242, 0.98);
+  color: #991b1b;
+  --tw-ring-color: rgba(248, 113, 113, 0.35);
+}
+
+html.dark .vt-top-snack--error {
+  border-color: rgba(248, 113, 113, 0.45);
+  background-color: rgba(69, 10, 10, 0.92);
+  color: #fecaca;
+  --tw-ring-color: rgba(248, 113, 113, 0.25);
+}
+
+.vt-top-snack--success {
+  border-color: rgba(52, 211, 153, 0.85);
+  background-color: rgba(236, 253, 245, 0.98);
+  color: #065f46;
+  --tw-ring-color: rgba(52, 211, 153, 0.35);
+}
+
+html.dark .vt-top-snack--success {
+  border-color: rgba(52, 211, 153, 0.45);
+  background-color: rgba(6, 47, 38, 0.92);
+  color: #a7f3d0;
+  --tw-ring-color: rgba(52, 211, 153, 0.25);
+}
+
+.vt-top-snack--info {
+  border-color: rgba(56, 189, 248, 0.85);
+  background-color: rgba(240, 249, 255, 0.98);
+  color: #0c4a6e;
+  --tw-ring-color: rgba(56, 189, 248, 0.35);
+}
+
+html.dark .vt-top-snack--info {
+  border-color: rgba(56, 189, 248, 0.45);
+  background-color: rgba(12, 37, 56, 0.92);
+  color: #bae6fd;
+  --tw-ring-color: rgba(56, 189, 248, 0.25);
+}
+
+.vt-snack-enter-active,
+.vt-snack-leave-active {
+  transition:
+    opacity 0.24s ease,
+    transform 0.24s ease;
+}
+
+.vt-snack-enter-from,
+.vt-snack-leave-to {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.98);
+}

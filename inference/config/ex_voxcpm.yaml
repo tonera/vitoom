@@ -1,0 +1,56 @@
+# Short entry: python inference/audio/main.py voxcpm
+# Equivalent to voxcpm_tts.yaml; change port if running alongside voxcpm_tts.
+# Backend from config.runtime.backend; per-backend params under
+# runtime.transformers / runtime.nano_vllm_voxcpm; siblings of backend are shared.
+service_id: "voxcpm"
+name: "VoxCPM TTS Inference Service"
+type: "audio"
+service_type: "audio"
+
+host: "127.0.0.1"
+port: 8013
+
+api_base_url: "http://192.168.31.126:8888"
+ws_url: "ws://192.168.31.126:8888"
+
+config:
+  # capabilities: sub-capabilities this audio instance exposes ("tts" / "asr" etc.).
+  #   - Required list for audio services; multiple entries allowed (e.g. future ["tts", "asr"]).
+  #   - Backend dispatch filters by capability on pin path (empty load_name), avoiding TTS
+  #     requests randomly hitting ASR (and vice versa).
+  #   - Consistency with fixed_family runtime: "tts" requires (qwen_tts, voxcpm);
+  #     "asr" requires (qwen_asr) etc.; validated at startup.
+  capabilities: ["tts"]
+  # supported_models: static list of models this family can theoretically run.
+  # When fixed_model is set non-empty:
+  #   - Weights dir fixed to {models_dir}/{fixed_model}, not from task load_name;
+  #   - fixed_family must be set (runtime path), else startup validation fails;
+  #   - fixed_model must be in supported_models;
+  #   - Pin mode dispatch only routes to fixed_model; other supported_models are
+  #     "not served by this instance currently".
+  fixed_model: "VoxCPM2"
+  fixed_family: "Voxcpm"
+  supported_models:
+    - "VoxCPM2"
+    - "VoxCPM1.5"
+    - "VoxCPM-0.5B"
+  # VoxCPM speaker presets/default_speaker live in config/tts_speakers.json.
+  runtime:
+    # transformers: official voxcpm package (default)
+    # nano_vllm_voxcpm: Nano-vLLM-VoxCPM engine
+    backend: "transformers"
+    # --- nano_vllm_voxcpm only ---
+    nano_vllm_voxcpm:
+      # Nano tuning: adjust for VRAM and workload; code does not clamp gpu_memory_utilization ratio
+      devices: [0]
+      inference_timesteps: 10
+      # Batch pool: default 16384 for high concurrency; lower batched tokens for single stream to save VRAM
+      max_num_batched_tokens: 4096
+      # Concurrent slots: single task need not open 16 sequence slots
+      max_num_seqs: 2
+      # Context cap: below engine max saves KV/cache; raise to 4096 if very long input errors
+      max_model_len: 3072
+      # gpu_memory_utilization: (0,1] passed to Nano; too low may fail allocate_kv_cache assert—tune manually
+      gpu_memory_utilization: 0.4
+      # true: slightly lower peak throughput, less CUDA Graph overhead and multi-process issues
+      enforce_eager: false

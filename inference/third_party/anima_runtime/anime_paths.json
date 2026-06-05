@@ -1,0 +1,12 @@
+{
+    "anima_paths": {
+      "dit_path": "split_files/diffusion_models/anima-preview.safetensors",
+      "vae_path": "split_files/vae/qwen_image_vae.safetensors",
+      "qwen3": {
+        "model_or_weights_path": "split_files/text_encoders/qwen_3_06b_base.safetensors",
+        "config_dir": "qwen3_06b",
+        "tokenizer_dir": "qwen3_06b"
+      },
+      "t5_tokenizer_dir": "t5_old"
+    }
+  }

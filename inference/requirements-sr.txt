@@ -1,0 +1,12 @@
+# 推荐安装方式：
+#   pip install --no-build-isolation --no-deps -r inference/requirements-sr.txt
+#
+basicsr
+gfpgan
+realesrgan
+facexlib
+# 说明：
+# - 由于上面使用了 `--no-deps`，你可能还需要手动补齐 gfpgan 的部分依赖：
+#   pip install lmdb yapf
+# - `tb-nightly` 在部分平台/镜像源下不可用；多数情况下仅影响 tensorboard 相关功能，可忽略。
+

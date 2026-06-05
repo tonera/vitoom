@@ -1,0 +1,53 @@
+service_id: "service_gemma"
+name: "Text Inference Service (Gemma 4)"
+type: "ollama"
+service_type: "text"
+
+host: "127.0.0.1"
+port: 8004
+
+config:
+  # Pin mode: this instance serves Gemma only; dispatch and inferencer ignore other load_name in requests,
+  # and will not load a second vLLM engine (e.g. Qwen) after Gemma is loaded (same GPU OOM).
+  fixed_model: "gemma-4-31B-it-AWQ-4bit"
+  fixed_family: "Gemma"
+
+  runtime:
+    backend: "vllm"
+
+    max_model_len: 65536
+    max_tokens: 2048
+    trust_remote_code: true
+    enable_thinking: false
+
+    # Gemma 4 MTP (vLLM / transformers): model is relative to models_dir; disabled if not found.
+    speculative_config:
+      method: mtp
+      model: gemma-4-31B-it-assistant
+      num_speculative_tokens: 4
+
+    vllm:
+      tensor_parallel_size: 1
+      gpu_memory_utilization: 0.5
+      engine_kwargs:
+        safetensors_load_strategy: "eager"
+        load_format: "fastsafetensors"
+        # Gemma 4 multimodal disables chunked_mm_input; single image max_tokens_per_mm_item≈2496,
+        # must be >= max_num_batched_tokens (vLLM default 2048) or engine init fails.
+        max_num_batched_tokens: 4096
+        limit_mm_per_prompt:
+          image: 8
+          video: 1
+          audio: 0
+        enforce_eager: false
+
+    transformers:
+      dtype: "auto"
+      device_map: "cuda:0"
+      allow_cpu_offload: false
+      # DGX Spark / GB10: mmap + pageable many-small H2D is very slow; see docs/GB10.md
+      disable_mmap: true
+      pin_memory: auto
+      model_kwargs:
+        attn_implementation: "sdpa"
+        low_cpu_mem_usage: true

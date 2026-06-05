@@ -1,0 +1,36 @@
+# syntax=docker/dockerfile:1.7
+# Trixie (glibc 2.38+) matches NVIDIA Spark host wheels; older x86_64 wheels remain compatible.
+FROM python:3.11-slim-trixie
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+ARG APT_MIRROR=
+ARG PIP_INDEX_URL=
+
+WORKDIR /app
+
+COPY docker/inference/base/requirements.common.txt /tmp/requirements.common.txt
+
+RUN --mount=type=cache,id=vitoom-pip-cache,target=/root/.cache/pip,sharing=locked \
+    set -eux; \
+    if [ -n "$PIP_INDEX_URL" ]; then \
+        python -m pip config set global.index-url "$PIP_INDEX_URL"; \
+    fi; \
+    if [ -n "$APT_MIRROR" ]; then \
+        sed -i "s|http://deb.debian.org/debian|$APT_MIRROR|g; s|http://deb.debian.org/debian-security|$APT_MIRROR-security|g" /etc/apt/sources.list.d/debian.sources; \
+    fi; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        ffmpeg \
+        libgl1 \
+        libglib2.0-0 \
+        libgomp1 \
+        libsndfile1 \
+        supervisor; \
+    rm -rf /var/lib/apt/lists/*; \
+    python -m pip install --upgrade pip setuptools wheel; \
+    python -m pip install -r /tmp/requirements.common.txt

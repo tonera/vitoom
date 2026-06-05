@@ -1,0 +1,321 @@
+{
+  "models": {
+    "wan22_t2v_a14b": {
+      "match": {
+        "exact": [
+          "Wan2.2-T2V-A14B"
+        ],
+        "contains": [
+          "wan2.2-t2v-a14b"
+        ]
+      },
+      "extends": [
+        "t2v"
+      ],
+      "overrides": {
+        "supported_resolutions": [
+          480,
+          720
+        ],
+        "default_resolution": 720
+      }
+    },
+    "wan22_i2v_a14b": {
+      "match": {
+        "exact": [
+          "Wan2.2-I2V-A14B"
+        ],
+        "contains": [
+          "wan2.2-i2v-a14b"
+        ]
+      },
+      "extends": [
+        "i2v"
+      ],
+      "overrides": {
+        "supported_resolutions": [
+          480,
+          720
+        ],
+        "default_resolution": 720
+      }
+    },
+    "wan22_ti2v_5b": {
+      "match": {
+        "exact": [
+          "Wan2.2-TI2V-5B",
+          "Wan2.2-TI2V-5B-Unlimited",
+          "Wan2.2-TI2V-5B-FP8",
+          "Turbo-Wan2.2-TI2V-5B-FP8"
+        ],
+        "contains": [
+          "wan2.2-ti2v-5b"
+        ]
+      },
+      "extends": [
+        "t2v",
+        "i2v",
+        "ti2v"
+      ],
+      "overrides": {
+        "supported_resolutions": [
+          720
+        ],
+        "default_resolution": 720
+      }
+    },
+    "wan22_fun_a14b_control": {
+      "match": {
+        "exact": [
+          "Wan2.2-Fun-A14B-Control"
+        ],
+        "contains": [
+          "wan2.2-fun-a14b-control"
+        ]
+      },
+      "extends": [
+        "vicv"
+      ],
+      "overrides": {
+        "supported_resolutions": [
+          720
+        ],
+        "default_resolution": 720
+      }
+    },
+    "wan22_animate_14b": {
+      "match": {
+        "exact": [
+          "Wan2.2-Animate-14B"
+        ],
+        "contains": [
+          "wan2.2-animate-14b"
+        ]
+      },
+      "extends": [
+        "ivv2v"
+      ],
+      "overrides": {
+        "supported_resolutions": [
+          720
+        ],
+        "default_resolution": 720
+      }
+    },
+    "wan22_s2v_14b": {
+      "match": {
+        "exact": [
+          "Wan2.2-S2V-14B"
+        ],
+        "contains": [
+          "wan2.2-s2v-14b"
+        ]
+      },
+      "extends": [
+        "s2v"
+      ],
+      "overrides": {
+        "supported_resolutions": [
+          480,
+          720
+        ],
+        "default_resolution": 720
+      }
+    },
+    "wan22_fun_a14b_inp": {
+      "match": {
+        "exact": [
+          "Wan2.2-Fun-A14B-InP"
+        ],
+        "contains": [
+          "wan2.2-fun-a14b-inp"
+        ]
+      },
+      "extends": [
+        "inp"
+      ],
+      "overrides": {
+        "supported_resolutions": [
+          720
+        ],
+        "default_resolution": 720
+      }
+    },
+    "wan22_fun_a14b_camera": {
+      "match": {
+        "exact": [
+          "Wan2.2-Fun-A14B-Control-Camera"
+        ],
+        "contains": [
+          "wan2.2-fun-a14b-control-camera"
+        ]
+      },
+      "extends": [
+        "ccv"
+      ],
+      "overrides": {
+        "supported_resolutions": [
+          720
+        ],
+        "default_resolution": 720
+      }
+    },
+    "wan21_t2v_14b": {
+      "match": {
+        "exact": [
+          "Wan2.1-T2V-14B"
+        ],
+        "contains": [
+          "wan2.1-t2v-14b"
+        ]
+      },
+      "extends": [
+        "t2v"
+      ],
+      "overrides": {
+        "supported_resolutions": [
+          480,
+          720
+        ],
+        "default_resolution": 720
+      }
+    },
+    "wan21_t2v_13b": {
+      "match": {
+        "exact": [
+          "Wan2.1-T2V-1.3B"
+        ],
+        "contains": [
+          "wan2.1-t2v-1.3b"
+        ]
+      },
+      "extends": [
+        "t2v"
+      ],
+      "overrides": {
+        "supported_resolutions": [
+          480
+        ],
+        "default_resolution": 480
+      }
+    },
+    "wan21_i2v_480p": {
+      "match": {
+        "exact": [
+          "Wan2.1-I2V-14B-480P"
+        ],
+        "contains": [
+          "wan2.1-i2v-14b-480p"
+        ]
+      },
+      "extends": [
+        "i2v"
+      ],
+      "overrides": {
+        "supported_resolutions": [
+          480
+        ],
+        "default_resolution": 480
+      }
+    },
+    "wan21_i2v_720p": {
+      "match": {
+        "exact": [
+          "Wan2.1-I2V-14B-720P"
+        ],
+        "contains": [
+          "wan2.1-i2v-14b-720p"
+        ]
+      },
+      "extends": [
+        "i2v"
+      ],
+      "overrides": {
+        "supported_resolutions": [
+          720
+        ],
+        "default_resolution": 720
+      }
+    },
+    "wan21_fun_13b_inp": {
+      "match": {
+        "exact": [
+          "Wan2.1-Fun-1.3B-InP",
+          "Wan2.1-Fun-V1.1-1.3B-InP"
+        ],
+        "contains": [
+          "wan2.1-fun-1.3b-inp",
+          "wan2.1-fun-v1.1-1.3b-inp"
+        ]
+      },
+      "extends": [
+        "inp"
+      ],
+      "overrides": {
+        "supported_resolutions": [
+          480
+        ],
+        "default_resolution": 480
+      }
+    },
+    "wan21_fun_14b_inp": {
+      "match": {
+        "exact": [
+          "Wan2.1-Fun-14B-InP",
+          "Wan2.1-Fun-V1.1-14B-InP"
+        ],
+        "contains": [
+          "wan2.1-fun-14b-inp",
+          "wan2.1-fun-v1.1-14b-inp"
+        ]
+      },
+      "extends": [
+        "inp"
+      ],
+      "overrides": {
+        "supported_resolutions": [
+          720
+        ],
+        "default_resolution": 720
+      }
+    },
+    "wan21_fun_13b_camera": {
+      "match": {
+        "exact": [
+          "Wan2.1-Fun-V1.1-1.3B-Control-Camera"
+        ],
+        "contains": [
+          "wan2.1-fun-v1.1-1.3b-control-camera"
+        ]
+      },
+      "extends": [
+        "ccv"
+      ],
+      "overrides": {
+        "supported_resolutions": [
+          480
+        ],
+        "default_resolution": 480
+      }
+    },
+    "wan21_fun_14b_camera": {
+      "match": {
+        "exact": [
+          "Wan2.1-Fun-V1.1-14B-Control-Camera"
+        ],
+        "contains": [
+          "wan2.1-fun-v1.1-14b-control-camera"
+        ]
+      },
+      "extends": [
+        "ccv"
+      ],
+      "overrides": {
+        "supported_resolutions": [
+          720
+        ],
+        "default_resolution": 720
+      }
+    }
+  }
+}

@@ -1,0 +1,51 @@
+service_id: "qwen_tts"
+name: "Qwen TTS Inference Service"
+type: "audio"
+service_type: "audio"
+
+host: "127.0.0.1"
+port: 8010
+
+config:
+  # capabilities: sub-capabilities this audio instance exposes ("tts" / "asr" etc.).
+  #   - Required list for audio services; multiple entries allowed (e.g. future ["tts", "asr"]).
+  #   - Backend dispatch filters by capability on pin path (empty load_name), avoiding TTS
+  #     requests randomly hitting ASR (and vice versa).
+  #   - Consistency with fixed_family runtime: "tts" requires (qwen_tts, voxcpm);
+  #     "asr" requires (qwen_asr) etc.; validated at startup.
+  capabilities: ["tts"]
+  # supported_models: static list of models this family can theoretically run.
+  #
+  # Valid fixed_model / fixed_family combinations:
+  #   1) Neither set: no pin, no service default; caller must pass family explicitly
+  #      or inferencer cannot pick runtime.
+  #   2) fixed_family only (current): service "default family"; inferencer fills when
+  #      request/session omits family; load_name still from caller (or handler defaults,
+  #      e.g. qwen-tts picks VoiceDesign / CustomVoice from instruct). Dispatch still
+  #      narrows by supported_models. Enables voice chat without hardcoding family in frontend.
+  #   3) Both set (pin): dispatch treats fixed_model as sole available model;
+  #      inferencer overrides request load_name / family; fixed_model must be in
+  #      supported_models. For single-weight deployment per machine.
+  #
+  # Invalid: fixed_model without fixed_family—pin mode needs runtime.
+  # fixed_model: "Qwen3-TTS-12Hz-0.6B-Base"
+  fixed_family: "Qwen-tts"
+  supported_models:
+    - "Qwen3-TTS-12Hz-0.6B-Base"
+    - "Qwen3-TTS-12Hz-1.7B-CustomVoice"
+    - "Qwen3-TTS-12Hz-1.7B-VoiceDesign"
+    - "Qwen3-TTS-12Hz-0.6B-CustomVoice"
+  runtime:
+    # transformers | nano_vllm (community nano-qwen3tts-vllm for true streaming)
+    backend: "transformers"
+    # --- transformers only (official qwen-tts package) ---
+    # --- nano_vllm only (Qwen3TTSInterface / vLLM scheduling and VRAM) ---
+    nano_vllm:
+      tensor_parallel_size: 1
+      # Single-request deployment defaults: aggressively trim batching/KV budget to save VRAM.
+      gpu_memory_utilization: 0.20
+      max_num_batched_tokens: 1024
+      max_num_seqs: 4
+      max_model_len: 1024
+      kvcache_block_size: 256
+      enforce_eager: false

@@ -1,0 +1,6 @@
+{
+  "apiBasePath": "/api",
+  "v1BasePath": "/v1",
+  "outputsBasePath": "/outputs",
+  "wsBasePath": "/ws"
+}

@@ -1,0 +1,28 @@
+id: preset-local-agent
+name: 本地通用助手
+type: general
+description: 不依赖 OpenClaw 的最小可运行预置 Agent
+
+config:
+  agent:
+    role: 通用任务助手
+    goal: >
+      Use the available context and local reasoning capability to complete the user's request safely.
+    backstory: >
+      You are a reliable general-purpose assistant for Vitoom.
+      When external tools are unavailable, you should still provide a grounded, concise answer.
+    tools: []
+    verbose: true
+    memory: true
+    allow_delegation: false
+
+  tasks:
+    - id: task_main
+      description: >
+        Understand the user's request and complete it with the available context.
+        User input: {message}
+      expected_output: A concise markdown response grounded in the available context.
+
+  runtime_defaults:
+    process: sequential
+    priority: 5
