@@ -280,7 +280,7 @@ def _download_ms_sdk(locale: str, repo_id: str, local_dir: Path, includes: tuple
     from modelscope.hub.snapshot_download import snapshot_download
 
     print(t("model_hub.status.sdk_ms", locale, repo_id=repo_id))
-    kwargs: dict[str, object] = {"model_id": repo_id, "cache_dir": str(local_dir)}
+    kwargs: dict[str, object] = {"model_id": repo_id, "local_dir": str(local_dir)}
     if includes:
         kwargs["allow_patterns"] = list(includes)
     snapshot_download(**kwargs)
