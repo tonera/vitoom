@@ -383,7 +383,7 @@ def write_env_file(locale: str, env: dict[str, str]) -> None:
 
 
 def maybe_write_local_inference_config(locale: str, env: dict[str, str], selected: set[str]) -> None:
-    if not (selected & set(DEPLOY_INFERENCE_IDS)):
+    if not (selected & {"backend", *DEPLOY_INFERENCE_IDS}):
         return
 
     from vitoom_setup.inference_config import LOCAL_INFERENCE_YAML, write_local_inference_yaml
