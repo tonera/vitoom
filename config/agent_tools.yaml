@@ -1,0 +1,417 @@
+tools:
+  - name: "list_available_tools"
+    description: "列出当前已上线且可用的 Agent 工具能力，帮助用户了解系统现在能做什么。仅当用户询问『你有哪些工具/你能做什么/当前有哪些能力』这类工具能力清单问题时使用；不要用于 slash command 帮助或执行具体任务。"
+    tags: ["tools", "capabilities", "工具列表", "能力清单", "功能介绍"]
+    aliases: ["available tools", "list tools", "capabilities", "能力列表", "工具清单"]
+    examples: ["你现在能用工具吗", "你有哪些工具", "你能做什么", "当前有哪些能力", "show available tools"]
+    negative_examples: ["帮我画一张图", "把这段文字念出来", "把这个 pdf 转成 markdown", "帮我规划旅行", "搜索最新资料"]
+    intent_anchors:
+      - "列出系统当前可用工具"
+      - "介绍当前支持的能力"
+      - "查看 Agent 工具能力"
+    input_modalities: ["text"]
+    provider: "local"
+    enabled: true
+
+  - name: "list_slash_commands"
+    description: "列出当前系统支持的 slash command 命令列表。仅当用户询问『你支持哪些命令/你有哪些可用命令』或输入『/help』这类命令帮助问题时使用；不要用于介绍 Agent 工具能力，也不要用于执行具体命令。"
+    tags: ["slash", "command", "help", "命令列表", "可用命令", "slash命令", "帮助", "/help"]
+    aliases: ["slash commands", "available commands", "supported commands", "help command", "/help", "命令清单", "可用命令"]
+    examples: ["你支持哪些命令？", "你有哪些可用命令", "有哪些 slash command", "/help", "show slash commands"]
+    negative_examples: ["你有哪些工具", "你能做什么", "当前有哪些能力", "帮我画一张图", "把这段文字念出来"]
+    intent_anchors:
+      - "列出系统支持的 slash command"
+      - "查看可用命令列表"
+      - "显示 /help 帮助"
+    input_modalities: ["text"]
+    provider: "local"
+    enabled: true
+
+  - name: "tavily_search"
+    description: "使用 Tavily 联网搜索公开网页内容，适合旅行规划、旅游建议、公开事实补充、新闻和实时网页检索。用户询问旅游目的地、行程、景点、美食、攻略、天气交通、新闻等公开网页内容时优先使用。"
+    tags: ["web", "search", "travel", "research", "联网", "旅游", "旅行", "攻略", "景点"]
+    aliases: ["internet search", "web search", "online search", "旅行规划", "旅游攻略", "北京旅游", "景点查询", "ウェブ検索", "ネット検索"]
+    examples: ["search the web for latest news", "搜索最新新闻", "我想去北京旅游", "帮我规划北京三日游", "北京有哪些值得去的景点", "你懂旅游信息吗", "最新情報を検索して", "在网上找找","从网上搜索"]
+    negative_examples:
+      - "查询员工资料"
+      - "查一下这个员工"
+      - "陈五100这个员工的资料"
+      - "北京办公室有多少员工"
+      - "员工组织关系"
+      - "给我某个员工的简历"
+    intent_anchors:
+      - "联网搜索网页信息"
+      - "旅行规划和旅游攻略"
+      - "查询目的地景点美食交通等公开信息"
+      - "明显具有时效性的信息查询"
+    input_modalities: ["text"]
+    provider: "local"
+    enabled: true
+
+  - name: "process_url_content"
+    description: "统一处理用户提供的网页、文档、图片、视频、PDF、Office、文本或压缩包 URL。适合总结/分析 URL 内容、文档转 Markdown/PDF、图片/PDF OCR 文字/表格/公式、指定字段抽取、zip 清单检查等 URL 内容任务。普通 Master Agent 遇到 URL 内容处理时优先使用本工具；不要同时暴露 web_page_reader/analyze_media/document_to_markdown/document_to_pdf/table_to_excel 这类底层 member。"
+    tags: ["url", "webpage", "document", "media", "ocr", "pdf", "office", "zip", "网页", "文档", "图片", "视频", "OCR", "内容处理"]
+    aliases: ["process URL content", "URL content", "summarize URL", "analyze URL", "文档处理", "链接内容处理", "URL内容处理"]
+    examples:
+      - "总结一下这个 PDF https://example.com/report.pdf"
+      - "这个网页主要讲什么 https://example.com/article"
+      - "分析这张图片 https://example.com/a.png"
+      - "把这个文档转成 Markdown https://example.com/a.docx"
+      - "把这个文件转成 PDF https://example.com/a.md"
+      - "把图里的表格导出 Excel https://example.com/table.png"
+      - "请将图片中的姓名、年龄、籍贯提取出来 https://example.com/card.jpg"
+      - "summarize this document https://example.com/a.pdf"
+      - "extract invoice number and total from this PDF https://example.com/invoice.pdf"
+    negative_examples:
+      - "搜索最新新闻"
+      - "我想去北京旅游"
+      - "查询员工资料"
+      - "查一下知识库里的报销流程"
+      - "把这段文字念出来"
+      - "画一张猫的图片"
+    intent_anchors:
+      - "处理用户给定 URL 的内容"
+      - "总结或分析网页文档图片视频链接"
+      - "把 URL 文档转换为 Markdown 或 PDF"
+      - "从图片或 PDF URL 中 OCR 提取文字表格公式字段"
+      - "inspect or convert a provided document URL"
+    input_modalities: ["text", "image", "video", "document"]
+    provider: "local"
+    enabled: true
+
+  - name: "web_page_reader"
+    description: "读取用户给出的单个普通网页 URL 正文，适合『总结这个网页』『这篇文章讲什么』『这个页面主要内容是什么』『帮我看一下这个链接内容』这类需要打开网页并基于页面内容回答的问题。不要用于联网搜索多个结果、旅游攻略或新闻检索；这些使用 tavily_search。不要用于图片/视频 URL、PDF、Office 文档或文件转换；图片视频使用 analyze_media，文档使用文档工具。"
+    tags: ["web", "webpage", "url", "reader", "网页", "链接", "网页读取", "网页总结", "文章总结"]
+    aliases: ["read web page", "scrape website", "summarize webpage", "网页内容", "读取网页", "总结网页", "链接内容", "ページ要約"]
+    examples:
+      - "总结一下这个网页 https://example.com/article"
+      - "这个链接主要讲什么？https://example.com/news/123"
+      - "帮我看一下这个页面的主要内容"
+      - "what is this web page about https://example.com/post"
+    negative_examples:
+      - "搜索最新新闻"
+      - "我想去北京旅游"
+      - "帮我规划北京三日游"
+      - "分析这张图片 https://example.com/a.jpg"
+      - "这视频讲了什么 https://example.com/a.mp4"
+      - "把这个 pdf 转成 markdown"
+      - "查询员工资料"
+    intent_anchors:
+      - "读取单个网页 URL 内容"
+      - "总结用户提供的网页正文"
+      - "基于给定网页链接回答主要内容"
+    input_modalities: ["text"]
+    provider: "local"
+    enabled: true
+
+  - name: "analyze_media"
+    description: "当用户明确希望对某一张图片或某一段视频的 URL 进行理解/描述/问答/摘要时调用。只有真正需要读取媒体内容的请求才使用；若用户只是整理链接、生成文案等不依赖画面的任务，请不要调用。"
+    tags: ["multimodal", "vision", "image", "video", "media", "媒体分析", "图片", "视频"]
+    aliases: ["image analysis", "video analysis", "describe image", "图片内容", "图片中是什么", "画像解析", "動画解析"]
+    examples: ["describe this image", "what is in this image", "这张图片中是什么", "这张图里有什么", "图片里有小狗吗", "这视频讲了什么", "分析这个视频内容", "この画像を説明して"]
+    # 负例只放"反向意图的核心动词/句式"，不要带具体物体名（如『小狗』『头像』），
+    # 否则 query 里出现同名物体时会反向自伤（query『画一张小狗头像』被『帮我画一张』
+    # 当成自己的负例打高分）。
+    negative_examples: ["generate an image", "create an image", "draw a picture", "edit this image", "把这张图改成", "把这张图换个背景", "去水印", "画像を作って"]
+    intent_anchor: "理解或描述用户给定的图片或视频内容"
+    input_modalities: ["image", "video"]
+    provider: "local"
+    enabled: true
+
+  - name: "image_generator"
+    description: "根据中文文本描述**生成新图片**（文生图/text-to-image，可选附带参考图做风格/构图引导）。仅当用户明确提出『画一张/生成一张/帮我画』等图片生成需求时使用；不要用于分析已有 URL 的图片（那是 analyze_media 的职责）；用户给了原图 URL 想『改/编辑/换背景/抠图/去水印』时请改用 image_editor。model_name 可选，用户没提时直接使用后端默认模型即可，不要反问用户。工具返回 files[] 供客户端附件/下载区展示；最终文字回答只需简短总结生成结果，不要内嵌 Markdown 图片、URL 或文件路径。"
+    tags: ["image", "generate", "文生图", "画图", "生成图片", "txt2img", "AI绘画"]
+    aliases: ["text to image", "image generation", "draw picture", "画像生成", "絵を描く"]
+    examples: ["generate an image of a cat", "帮我画一张头像", "画一只小狗", "参考这张图的风格画一只小狗", "猫の画像を作って"]
+    # 负例只描"反向意图的核心动词/问句"，不要带物体名（『小狗』/『头像』等），
+    # 否则用户写『画个小狗』时会被『图片里有小狗吗』反向打分。
+    negative_examples: ["describe this image", "what is in this image", "这张图里是什么", "这张图片中是什么", "分析这张图片", "edit this image", "把这张图改成", "把这张图换个背景", "去水印", "この画像を説明して"]
+    intent_anchor: "根据文字描述生成新图片"
+    input_modalities: ["text", "image"]
+    provider: "local"
+    enabled: true
+
+  - name: "image_editor"
+    description: "对用户提供的**已有图片**做编辑（修图/图生图编辑/img2img edit）。典型触发：『把这张图换个背景』『给这张图去水印』『把 A 图改成水彩风』『对这张图做局部重绘』等。**必须提供至少一张原图 URL**，放进 tpl_list 字段（List[str]，允许只有一条）；prompt 字段用来描述『希望把图改成什么样』。不要自己编造 model_name（本工具不接受该参数）。与 image_generator 的区别：image_generator 从零生成新图（可选参考图），image_editor 必须基于用户给的原图做编辑；语义不同，输出也不同。工具返回 files[]：向用户写链接时有 thumb_url 用 thumb_url，否则用 url，须原样复制。"
+    tags: ["image", "edit", "image_edit", "img2img", "修图", "编辑图片", "改图", "换背景", "抠图", "去水印", "局部重绘", "风格迁移"]
+    aliases: ["image edit", "edit existing image", "retouch image", "画像編集", "画像を修正"]
+    examples: ["remove the watermark from this image", "把这张图换个背景", "把这张照片改成水彩风格", "この画像の背景を変えて"]
+    # 负例只放"反向意图的核心动词/问句"，避免带物体名导致 query 自伤。
+    negative_examples: ["generate an image from scratch", "create a new image", "draw a picture", "describe this image", "what is in this image", "这张图片中是什么", "这是什么图片", "分析这张图片", "画像を作って"]
+    intent_anchor: "对用户提供的现有图片做编辑（换背景/抠图/去水印/局部重绘）"
+    input_modalities: ["image"]
+    provider: "local"
+    enabled: true
+
+  - name: "video_generator"
+    description: "根据中文文本描述或参考图/视频生成新视频（文生视频/图生视频/视频编辑）。仅当用户明确提出『生成一段视频/做个动画/合成视频』等视频需求时使用；不要用于分析已有 URL 的视频（那是 analyze_media 的职责），也不要与 image_generator 混用。model_name 可选，用户没提时直接使用后端默认模型即可，不要反问用户。工具返回 files[]：向用户写链接时有 thumb_url 用 thumb_url，否则用 url，须原样复制。"
+    tags: ["video", "generate", "文生视频", "图生视频", "视频生成", "txt2video", "AI视频"]
+    aliases: ["text to video", "video generation", "make animation", "動画生成", "ビデオ生成"]
+    examples: ["generate a short video", "做一段动画", "把这张图变成会动的", "短い動画を作って"]
+    negative_examples: ["describe this video", "这视频讲了什么", "分析这个视频", "transcribe this audio"]
+    intent_anchor: "根据文字描述或参考图生成新视频"
+    input_modalities: ["text", "image"]
+    provider: "local"
+    enabled: true
+
+  - name: "audio_asr"
+    description: "把一段音频 URL 转写为文字（语音识别 / speech-to-text）。仅当用户明确要求『把这段音频转成文字 / 识别这段语音 / 帮我听写』并提供了音频 URL 时使用；不要用来分析图片/视频或做文本生成。本工具不接受 model_name 参数，后端会自动选用合适的 ASR 模型，不要反问用户。若回复中附文本结果：files[]则直接用里面的url原样复制作为试听链接。"
+    tags: ["audio", "asr", "speech-to-text", "stt", "语音转文字", "语音识别", "听写", "转录"]
+    aliases: ["speech to text", "audio transcription", "transcribe audio", "音声認識", "文字起こし"]
+    examples: ["transcribe this audio", "把这段录音转成文字", "识别一下这段语音", "この音声を書き起こして"]
+    negative_examples:
+      - "read this text aloud"
+      - "generate speech"
+      - "把这段文字念出来"
+      - "音声を合成して"
+    intent_anchors:
+      - "把已有的音频文件转写成文字"
+      - "把录音的内容听写成文本"
+    input_modalities: ["audio"]
+    provider: "local"
+    enabled: true
+
+  - name: "audio_tts"
+    description: "把一段单人/单段文本合成为语音（文字转语音 / text-to-speech）。仅当用户明确要求『把这段文字转成语音 / 念出来 / 用某个音色说出来 / 模仿这段录音说...』时使用；不要用来生成背景音乐或改写文本。若用户要求 LLM 先创作多角色对白、人物对话、广播剧、有声剧、A/B/C 多人配音并输出一个合成音频文件，必须改用 audio_drama_tts，不要用本工具。支持三种模式（字段 tts_mode，不填按以下规则推断）：(1) custom_voice 默认——从 9 个预置说话人（aiden/dylan/eric/ono_anna/ryan/serena/sohee/uncle_fu/vivian）里选一个，用户明确指定了说话人时填 speaker_name；(2) voice_design——用户只描述声线（如『沙哑的中年男声』『撒娇的萝莉音』）但没指定具体 speaker，把描述写进 instruct，不要填 speaker_name；(3) voice_clone——用户提供了参考音频 URL 并要求模仿那段录音时使用，必须同时填 ref_audio（音频 URL 或本地路径）和 ref_text（音频里所念的原文），不要填 speaker_name/instruct。本工具不接受 model_name 参数，后端会按 tts_mode 自动选用权重；不要反问用户模型名，也不要把 URL 填成 ref_audio 之外的任何字段。若回复中附文本结果：files[]则直接用里面的url原样复制作为试听链接。"
+    tags:
+      - "audio"
+      - "tts"
+      - "text-to-speech"
+      - "文字转语音"
+      - "语音合成"
+      - "念出来"
+      - "朗读"
+      - "voice_clone"
+      - "克隆声音"
+      - "模仿声音"
+    aliases:
+      - "text to speech"
+      - "speech synthesis"
+      - "read aloud"
+      - "音声合成"
+      - "読み上げ"
+    examples:
+      - "read this text aloud"
+      - "把这段文字转成语音"
+      - "用这个音色念这段话"
+      - "请念出这段话"
+      - "この文章を読み上げて"
+    negative_examples:
+      - "transcribe this audio"
+      - "把这段录音转成文字"
+      - "识别这段语音"
+      - "听写一下这段录音"
+      - "文字起こしして"
+      - "请写一段三人对白并生成语音"
+      - "场景是雪山，A/B/C 分别是什么声音，生成一段广播剧音频"
+      - "把这段多角色剧本做成配音文件"
+      - "请设计人物对白、角色声音色彩，并合成一个音频文件"
+    intent_anchors:
+      - "把文字朗读成语音"
+      - "用某种声音或音色把文字念出来"
+      - "用某种语气把文字说出来"
+      - "用指定语言把这段文字说出来"
+    input_modalities: ["text", "audio"]
+    provider: "local"
+    enabled: true
+
+  - name: "audio_drama_tts"
+    description: "把多角色对白/人物对话/广播剧脚本合成为一个可下载音频文件。适合『写一段三人对白并生成语音』『设计角色名、角色台词、声音色彩，然后交给 TTS 合成』『A/B/C 分别用某种声音，按故事情节生成配音』这类任务。调用前 LLM 应先设计完整角色表和对白行：characters 里写每个角色 id/name/voice_mode/speaker_name/instruct/seed_text/language；dialogues 里写 speaker_id/text/emotion/pause_after_ms。必须为每个角色定义声音来源：如果用户没有指定音色、性别、年龄或感情色彩，LLM 必须根据角色名、人物关系、剧情语境和常识推断，默认填写 voice_mode=voice_design 和明确 instruct；只有用户明确指定系统预置音色时才填写 voice_mode=custom_voice 和 speaker_name。不要让角色缺少声音定义，也不要依赖后端默认音色。每个角色会先生成 voice seed audio，后续该角色所有台词用 seed audio 做 controllable clone，保持角色音色一致。后端选型一般不用 LLM 操心：默认不要传 model_name 和 clone_base_model_name，由后端 dispatch 路由到任意在线 TTS 服务，推理侧再按 character.voice_mode 自动决定加载 VoiceDesign / CustomVoice / Base 权重。仅当用户明确点名某个家族时再填 model_name：VoxCPM 系列 'VoxCPM2' 等；Qwen3-TTS 系列 'Qwen3-TTS-12Hz-1.7B-VoiceDesign'。speaker_name 取值空间随家族不同：voxcpm 用 linda/luoli/... ，qwen 用 Vivian/Serena/Uncle_Fu/... 。不要用于单段朗读（用 audio_tts），也不要用于修改实时聊天助手声音（用 set_chat_voice）。"
+    tags: ["audio", "tts", "dialogue", "drama", "广播剧", "多角色", "对白", "人物对白", "人物对话", "角色声音", "声音色彩", "配音", "有声剧"]
+    aliases: ["audio drama tts", "dialogue tts", "multi character tts", "广播剧配音", "多人对白配音", "角色对白语音", "人物对白配音", "有声剧生成"]
+    examples:
+      - "请写一段三人对白并生成语音"
+      - "场景是雪山，A 是沧桑中年男声，B 是 Vivian，C 是小萝莉，生成一段广播剧音频"
+      - "把这段多角色剧本做成配音文件"
+      - "请设计一段人物对白，输出每个角色名、台词和声音色彩，然后生成音频文件"
+    negative_examples:
+      - "把这段文字念出来"
+      - "我不喜欢你的声音，换个声音"
+      - "请用 Vivian 的声音读这句话"
+    intent_anchors:
+      - "多角色对白脚本生成并合成为音频文件"
+      - "广播剧或有声剧配音任务"
+      - "为每个角色设计并保持独立音色"
+      - "写人物对白并生成音频"
+      - "设计角色名台词声音色彩"
+      - "多角色剧本配音下载"
+    input_modalities: ["text"]
+    provider: "local"
+    enabled: true
+
+  - name: "set_chat_voice"
+    description: "切换当前会话后续回复的音色（写操作）。仅当 query 含切换动词（换/改/切/不喜欢这个声音/以后用…对话）时调用。询问类（『是什么声音/什么音色/which/what voice』）和撤销类（『我没让你换』）一律不调用，直接用文字回答当前 speaker_name/instruct。朗读用 audio_tts，多角色配音用 audio_drama_tts。三类用法：(1) 只说换一个 → mode=random_custom_voice；(2) 描述声线 → mode=voice_design + instruct（如『沧桑沙哑的男性声音』）；(3) 点名 speaker → mode=custom_voice + speaker_name（仅做大小写规范化，不替换成其他 speaker）。可用 speaker：linda, bbc, luoli, anchen, bowen, xinran, samuel, alice, carter, fanbao, Vivian, Serena, Uncle_Fu, Dylan, Eric, Ryan, Aiden, Ono_Anna, Sohee。"
+    tags: ["audio", "tts", "voice", "chat voice", "换声音", "换个声音", "音色", "语音设计", "speaker"]
+    aliases: ["change chat voice", "set chat voice", "switch voice", "换个声音", "换一种声音", "不喜欢这个声音", "用某种声音跟我说话"]
+    examples:
+      - "我不喜欢这个声音，请换个声音说话"
+      - "给我换一个男声"
+      - "请你用沧桑沙哑的男性声音跟我对话"
+      - "以后用温柔一点的女声和我聊天"
+    negative_examples:
+      - "把这段文字转成语音"
+      - "请念出下面这段话"
+      - "生成一个音频文件"
+      - "模仿这段录音朗读这句话"
+      # 询问/疑问类：用户只是想知道当前在用什么声音，不要切换
+      - "你这个声音是什么声音"
+      - "你现在用的是什么声音"
+      - "你这个声音是什么声音呢"
+      - "你现在的音色叫什么名字"
+      - "当前是什么声音"
+      - "你这是男声还是女声"
+      - "你的 voice 是哪一个"
+      - "你声音听起来像谁"
+      - "what voice are you using"
+      - "which speaker is this"
+    intent_anchors:
+      - "修改当前聊天会话的后续回复音色"
+      - "为实时语音聊天设置持久 voice profile"
+      - "根据用户偏好切换会话 speaker 或 voice design instruct"
+    input_modalities: ["text", "audio"]
+    provider: "local"
+    enabled: true
+
+  - name: "document_to_markdown"
+    description: "把用户提供的文档链接或聊天内容转换/导出为 Markdown。适合『把这个文档转成 md/markdown』『把 pdf/docx/txt/xlsx/pptx 转为 markdown』以及『总结以上信息并导出为 md 文档』『把刚才回答保存成 Markdown』这类请求。支持单文件或多文件；聊天内容导出时由 LLM 先整理正文再传入 markdown/content。PDF 会优先走 OCR 文档转换链路，其他常见办公/文本文档走本地文档转换器；最终会产出可下载的 Markdown/ZIP 结果。工具返回 files[]：向用户写链接用 url，须原样复制。"
+    tags: ["document", "markdown", "md", "pdf", "doc", "docx", "txt", "xlsx", "xls", "pptx", "文档", "文档转换", "转markdown", "转md", "导出md", "导出markdown", "保存markdown", "pdf转md", "docx转md"]
+    aliases: ["convert document to markdown", "export content to markdown", "save answer as markdown", "pdf to markdown", "docx to markdown", "Markdown変換"]
+    examples: ["convert this PDF to markdown", "把这个 docx 转成 md", "请总结以上信息，导出为 md 文档", "把刚才的回答保存成 Markdown", "このPDFをMarkdownに変換して"]
+    negative_examples: ["把这个文档转成pdf", "导出为pdf", "pdf导出", "convert to pdf", "保存成PDF"]
+    intent_anchors:
+      - "把文档转换成 Markdown"
+      - "把聊天内容导出为 MD"
+      - "保存回答为 Markdown 文件"
+    input_modalities: ["document", "text"]
+    provider: "local"
+    enabled: true
+
+  - name: "document_to_pdf"
+    description: "把用户提供的文档或聊天内容转换/导出为 PDF。Markdown(.md) 或聊天内容使用 pandoc 转换，常见办公文档（doc/docx/xls/xlsx/ppt/pptx）使用 LibreOffice 转换；若输入是 zip，会递归处理其中可转换文件并输出 PDF（多文件时返回 zip）。聊天内容导出时由 LLM 先整理正文再传入 markdown/content。工具返回 files[]：向用户写链接用 url，须原样复制。"
+    tags: ["document", "pdf", "文档", "文档转换", "转pdf", "导出pdf", "保存pdf", "内容导出pdf", "回答导出pdf", "md转pdf", "markdown转pdf", "docx转pdf", "xls转pdf", "ppt转pdf", "zip转pdf"]
+    aliases: ["convert document to pdf", "export content to pdf", "save answer as pdf", "export to pdf", "md to pdf", "markdown to pdf", "docx to pdf"]
+    examples: ["把这个文档转为pdf", "把这个md转成pdf", "把刚才的回答导出为 PDF", "请总结以上信息并导出成 PDF", "convert this file to pdf", "export this document as PDF"]
+    negative_examples: ["把这个文档转成markdown", "转为md", "pdf转markdown", "convert to markdown", "markdown提取"]
+    intent_anchors:
+      - "把文档转换为 PDF"
+      - "把聊天内容导出为 PDF"
+      - "保存回答为 PDF 文件"
+    input_modalities: ["document", "text"]
+    provider: "local"
+    enabled: true
+
+  - name: "table_to_excel"
+    description: "把聊天中 LLM 生成或整理出的表格内容导出为 Excel .xlsx 文件。适合『把上面的表格导出为 Excel』『把这个表保存成 xlsx』『导出表格』这类请求。调用工具时只传 content（表格正文）以及可选 filename/sheet_name；content 可为 Markdown 表格、CSV/TSV 文本，或 JSON 行数组。不要把工具调用写成 XML/HTML 文本。工具返回 files[]：向用户写链接用 url，须原样复制。"
+    tags: ["excel", "xlsx", "spreadsheet", "table", "表格", "电子表格", "导出excel", "导出xlsx", "保存表格", "表格导出"]
+    aliases: ["export table to excel", "save table as xlsx", "markdown table to excel", "spreadsheet export"]
+    examples: ["把上面的表格导出为 Excel", "把刚才生成的表保存成 xlsx", "export this table to Excel", "请整理成表格并导出 Excel"]
+    negative_examples: ["导出为pdf", "导出为md", "把文档转成excel", "读取这个excel", "分析这个xlsx"]
+    intent_anchors:
+      - "把聊天表格导出为 Excel"
+      - "保存表格为 xlsx 文件"
+      - "将 Markdown 表格转 Excel"
+    input_modalities: ["text"]
+    provider: "local"
+    enabled: true
+
+  - name: "hr_business_query"
+    description: "HR 业务域智能查询生产版。将自然语言 HR 问题规划为受限 ES DSL 或受控 QuerySpec，经字段、权限和成本校验后执行员工问数、人员筛选、组织关系和简历资料查询；适合『北京办公室有多少员工』『各部门人数分布』『James Kwok 有多少直接下属』『有离职风险且影响度高的关键人才』『给我张三和李四的简历』等正式 HR/员工/组织/简历问题。数据质量/数据治理问题（如邮箱格式异常、重复员工 ID、经理 ID 不存在、缺失关键字段）不属于本业务查询工具。多轮对话中用户说『他/她/这个人/他的简历』时，应先根据上下文把员工姓名或工号补全进 query 再调用；Helen Wang 161、陈明19 这类数字后缀姓名不要当成员工 ID。"
+    tags: ["hr", "employee", "resume", "analytics", "queryspec", "问数", "员工", "简历", "组织关系", "HR分析", "生产版"]
+    aliases: ["HR analytics", "employee query", "resume query", "员工问数", "简历检索", "组织关系查询", "HR生产查询"]
+    examples:
+      - "北京办公室有多少员工？"
+      - "各部门人数分布情况"
+      - "James Kwok 有多少直接下属？"
+      - "给我张三和李四的简历"
+      - "把 Helen Wang 161 的简历发给我"
+      - "Helen Wang 161 是不是离职了？"
+      - "北京制造部门在职工程师"
+      - "绩效高且流失风险高的关键岗位员工"
+      - "有离职风险且影响度高的关键人才"
+    negative_examples:
+      - "把这个文档转成pdf"
+      - "帮我画一张图"
+      - "搜索最新新闻"
+      - "把这段文字念出来"
+      - "分析这张图片"
+    intent_anchors:
+      - "HR 员工数据问数"
+      - "查询员工和简历"
+      - "分析组织关系"
+      - "将 HR 自然语言问题转换为 QuerySpec 并执行"
+    input_modalities: ["text"]
+    provider: "local"
+    enabled: false
+
+  - name: "knowledge_base_query"
+    description: "查询本地知识库文档，适合根据已入库的 PDF、Markdown、Word、PPT、Keynote、压缩包文件名、制度、方案、项目文档、历史工作资料回答问题。支持文件名、路径、正文和语义检索，并返回来源引用。"
+    tags: ["knowledge", "kb", "rag", "document", "知识库", "文档检索", "资料查询", "历史文档"]
+    aliases: ["知识库查询", "查知识库", "文档问答", "RAG", "local knowledge search", "历史资料查询"]
+    examples:
+      - "查一下知识库里关于报销流程的说明"
+      - "根据项目文档解释一下系统架构"
+      - "知识库里有没有提到部署步骤"
+      - "找一下以前关于华东销售预算评审的 PPT"
+      - "历史文档里有没有 Vitoom 架构设计"
+    negative_examples:
+      - "搜索最新新闻"
+      - "把这个 PDF 转成 Markdown"
+      - "查询员工资料"
+      - "帮我画一张图"
+    intent_anchors:
+      - "查询本地知识库文档"
+      - "根据已入库资料回答问题"
+      - "文档语义检索和问答"
+      - "查找历史工作文件"
+    input_modalities: ["text"]
+    provider: "local"
+    enabled: true
+
+  - name: "knowledge_base_archive"
+    description: "将用户提供的文件 URL 或当前对话总结归档到本地知识库，并立即更新索引。适合『把这个文件存档』『加入知识库』『保存到知识库』『总结当前对话并存档』等请求。文件 URL 会被下载、分类、解析、入库并刷新；对话内容会整理为 Markdown 后入库。音频、视频、图片类文件不入库。"
+    tags: ["knowledge", "archive", "kb", "知识库", "归档", "存档", "加入知识库", "保存资料"]
+    aliases: ["知识库归档", "文件存档", "保存到知识库", "加入知识库", "archive to knowledge base"]
+    examples:
+      - "把这个文件存档 https://example.com/report.pdf"
+      - "把这个文档加入知识库"
+      - "总结当前对话并存档"
+      - "把刚才讨论的方案保存到知识库"
+    negative_examples:
+      - "查一下知识库里有没有这个资料"
+      - "把这个 PDF 转成 Markdown"
+      - "搜索最新新闻"
+      - "把这张图片生成一张新图"
+    intent_anchors:
+      - "将文件写入本地知识库"
+      - "归档当前对话到知识库"
+      - "下载 URL 文件并入库"
+    input_modalities: ["text"]
+    provider: "local"
+    enabled: true
+
+  - name: "openclaw_sessions_list"
+    description: "列出当前可用的 OpenClaw 会话，适合在需要确认浏览器或会话上下文时使用。"
+    tags: ["openclaw", "session", "browser", "上下文"]
+    input_modalities: ["text"]
+    provider: "openclaw"
+    enabled: true
+    requires_openclaw: true
+    target_tool_name: "sessions_list"
+
+  - name: "openclaw_browser_snapshot"
+    description: "获取当前 OpenClaw 浏览器页面快照，适合查看页面结构、状态和可交互元素。"
+    tags: ["openclaw", "browser", "snapshot", "page", "页面"]
+    input_modalities: ["text"]
+    provider: "openclaw"
+    enabled: true
+    requires_openclaw: true
+    target_tool_name: "browser_snapshot"
+
+  - name: "openclaw_browser_search"
+    description: "在当前 OpenClaw 浏览器页面中搜索文本，适合快速定位页面上的关键词或内容。"
+    tags: ["openclaw", "browser", "search", "text", "搜索"]
+    input_modalities: ["text"]
+    provider: "openclaw"
+    enabled: true
+    requires_openclaw: true
+    target_tool_name: "browser_search"

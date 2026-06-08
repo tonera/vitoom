@@ -1,0 +1,3 @@
+# Visual service runtime dependencies.
+# Keep the source of truth in inference/requirements.txt for now.
+-r /app/inference/requirements.txt

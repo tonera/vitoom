@@ -1,0 +1,8 @@
+# Example inferencer startup configuration
+# Tauri service UI creates this file when starting the inferencer
+# Path: inference/config/{service_id}.yaml
+
+# Service metadata
+service_id: "video"  # Service ID, system-generated, do not change
+name: "Video infer Service"  # Display name
+service_type: "video"  # Content type: image/video/audio/text

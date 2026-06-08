@@ -1,0 +1,116 @@
+# uv pip install -r inference/requirements.txt --extra-index-url https://download.pytorch.org/whl/cu130
+# uv pip install --no-build-isolation --no-deps -r inference/requirements-sr.txt
+
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+torch==2.11.0
+torchvision==0.26.0 
+torchaudio==2.11.0
+
+# HTTP客户端
+httpx>=0.25.0
+aiohttp>=3.9.0
+aiofiles>=23.2.0  # 异步文件操作
+
+# WebSocket客户端
+websockets>=12.0
+
+# Redis（BRPOP/RPUSH 等队列通信）
+redis>=5.0.0
+
+# ModelScope（模型信息获取 + CLI 下载）
+modelscope
+
+# HuggingFace（HfApi 获取文件清单 + hf CLI 下载）
+huggingface_hub>=0.34
+
+# 工具库
+python-dateutil>=2.8.2
+pytz>=2023.3
+
+# 日志
+# logging是Python标准库
+
+# 配置文件解析
+nvidia-ml-py
+
+
+# 其他工具
+python-dotenv>=1.0.0
+colorlog>=6.8.0  # 彩色日志输出
+
+# 系统监控
+psutil>=5.9.0
+
+# GPU监控（可选，如果系统没有GPU可以不安装）
+# pynvml 已被弃用，建议使用 nvidia-ml-py
+nvidia-ml-py>=13.0.0
+
+# AI推理依赖
+diffusers>=0.38.0
+transformers>=4.57,<5
+accelerate>=1.9
+pillow>=10.0.0
+safetensors>=0.4.0  # 用于模型权重文件读取
+opencv-python-headless
+numpy
+protobuf
+sentencepiece
+einops
+
+# 更友好的方式：SR 相关依赖已拆分到 `inference/requirements-sr.txt`（可选）。
+# 主依赖安装完成后再执行：
+#   pip install --no-build-isolation --no-deps -r inference/requirements-sr.txt
+insightface
+
+# ---- 兼容性提示（SR/Real-ESRGAN）----
+# `realesrgan -> basicsr` 的部分版本在导入时依赖 `torchvision.transforms.functional_tensor`，
+# 该模块在 torchvision 新版本中已移除/重构，可能导致 SR 启动失败。
+# 项目已通过仓库根目录 `sitecustomize.py` 做了 shim 兼容；若你们更偏好“版本锁定”方案，
+# 请在部署环境里显式 pin 一组可用的 torch/torchvision 组合。
+
+# 对象存储（S3/OSS 直传）
+boto3>=1.34.0
+oss2>=2.18.0
+torchao
+socksio
+bitsandbytes
+# triton
+optimum
+#换脸服务必须安装 conda install nvidia/label/cuda-12.4.1::libcublas
+controlnet_aux
+onnxruntime
+# pulid需要
+ftfy
+torchsde
+# 去背景
+kornia
+# 视频
+imageio-ffmpeg
+# 音频生成视频
+librosa
+soundfile>=0.12.1
+jose
+pandas
+peft>=0.17
+loguru
+termcolor
+# tb-nightly
+absl-py>=0.4
+grpcio>=1.48.2
+markdown>=2.6.8
+tensorboard-data-server<0.8.0,>=0.7.0
+werkzeug>=1.0.1
+#编译flash-attn需要
+setuptools<82
+wheel
+ninja
+packaging
+
+fvcore==0.1.5.post20221221
+omegaconf==2.3.0
+setuptools==70.2.0
+lmdb
+yapf
+addict
+future

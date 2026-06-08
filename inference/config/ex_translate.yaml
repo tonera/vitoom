@@ -1,0 +1,21 @@
+service_id: "translate"
+name: "Translate Inference Service (TranslateGemma)"
+type: "transformers"
+service_type: "translate"
+
+host: "127.0.0.1"
+port: 8007
+
+config:
+  runtime:
+    backend: "transformers"
+    trust_remote_code: true
+    temperature: 0.0
+    top_p: 1.0
+    max_new_tokens: 768
+    dtype: "auto"
+    device_map: "cuda:0"
+    transformers:
+      model_kwargs:
+        attn_implementation: "sdpa"
+        low_cpu_mem_usage: true

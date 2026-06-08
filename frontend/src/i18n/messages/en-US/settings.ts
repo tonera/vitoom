@@ -1,0 +1,33 @@
+export default {
+  title: 'Settings',
+  subtitle: 'Manage your profile and login password.',
+  profile: {
+    title: 'Profile',
+    desc: 'Update your display name. Email cannot be changed.',
+    email: 'Email',
+    nickname: 'Nickname',
+    nicknamePlaceholder: 'Enter nickname',
+    saveNickname: 'Save nickname',
+    saving: 'Saving...',
+    updated: 'Nickname updated',
+    saveFailed: 'Failed to save nickname',
+  },
+  password: {
+    title: 'Change password',
+    desc: 'New password must be at least 6 characters and match confirmation.',
+    newPassword: 'New password',
+    confirmPassword: 'Confirm new password',
+    submit: 'Change password',
+    saving: 'Saving...',
+    fillNewPassword: 'Please enter a new password',
+    minLength: 'Password must be at least 6 characters',
+    mismatch: 'Passwords do not match',
+    updated: 'Password updated',
+    saveFailed: 'Failed to change password',
+  },
+  loadProfileFailed: 'Failed to load profile',
+  about: {
+    title: 'About',
+    version: 'Version',
+  },
+}

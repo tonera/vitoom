@@ -1,0 +1,2 @@
+# Qwen TTS service dependencies.
+-r /app/inference/audio/requirement-qwen3tts.txt

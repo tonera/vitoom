@@ -1,0 +1,33 @@
+export default {
+  title: '设置',
+  subtitle: '管理你的个人资料与登录密码。',
+  profile: {
+    title: '个人资料',
+    desc: '修改显示昵称，邮箱不可更改。',
+    email: '邮箱',
+    nickname: '昵称',
+    nicknamePlaceholder: '请输入昵称',
+    saveNickname: '保存昵称',
+    saving: '保存中...',
+    updated: '昵称已更新',
+    saveFailed: '保存昵称失败',
+  },
+  password: {
+    title: '修改密码',
+    desc: '新密码至少 6 位，两次输入需一致。',
+    newPassword: '新密码',
+    confirmPassword: '确认新密码',
+    submit: '修改密码',
+    saving: '保存中...',
+    fillNewPassword: '请填写新密码',
+    minLength: '密码至少 6 位',
+    mismatch: '两次输入的密码不一致',
+    updated: '密码已更新',
+    saveFailed: '修改密码失败',
+  },
+  loadProfileFailed: '加载资料失败',
+  about: {
+    title: '关于',
+    version: '版本',
+  },
+}

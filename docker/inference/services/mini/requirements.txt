@@ -1,0 +1,2 @@
+# Mini OCR service dependencies.
+-r /app/inference/mini/requirements.txt

@@ -1,0 +1,4 @@
+{
+    "framework": "Pytorch",
+    "task": "text-to-image-synthesis"
+}

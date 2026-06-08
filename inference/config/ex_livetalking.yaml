@@ -1,0 +1,41 @@
+# LiveTalking digital-human sidecar configuration
+# Start: python inference/avatar/main.py livetalking
+#
+# Integration (see .cursor/plans/livetalking_*.plan.md
+# and docs avatar AV sync relay doc, scheme A):
+# - Default decorative scheme D: local audio is authoritative playback; sidecar WebRTC video only,
+#   remote audio hard-muted, end-to-end AV skew ~330ms
+# - Set ``VITOOM_LIVETALKING_AV_SYNC_MODE=aligned`` for scheme A:
+#   sidecar pushes video + audio on one PeerConnection; browser
+#   lip-syncs via RTP timestamps, skew ≤ 50ms. No extra frontend config—
+#   when sidecar adds audio track, frontend ontrack switches authoritative source.
+#   Recommend "use headphones" hint: aligned mode cannot do precise
+#   echo correlation; speaker playback may leak into ASR.
+# - Browser connects **directly to this service /offer** for WebRTC signaling; sidecar URL from
+#   vitoom backend GET /api/avatar/status, reading config/app.yaml
+#   server.livetalking_url (public reachable sidecar address)
+# - PCM from vitoom backend livetalking_client via ws://{server.livetalking_url}/avatar_stream
+# - Ingress contract: all PCM into sidecar must be 16k mono pcm_s16le; conversion done in vitoom backend
+service_id: "livetalking"
+name: "LiveTalking Avatar Sidecar"
+type: "avatar"
+service_type: "avatar"
+
+# Bind: sidecar must accept same-host backend (PCM WS) and browser (WebRTC signaling),
+# so always 0.0.0.0; public IP declared in config/app.yaml server.livetalking_url
+host: "0.0.0.0"
+port: 8014  # Avoid 8001/8003/8006/8010/8011/8013
+
+
+config:
+  capabilities: ["avatar"]
+  # Phase 1: musetalk only; wav2lip later. Performance refs:
+  # musetalk@4090 ≈ 72fps / @3090 ≈ 45fps / @3080Ti ≈ 42fps, single stream OK
+  model: "musetalk"
+  # Actual name per LiveTalking model dir (avatars/ subdir) e.g. xiaoshuzi/musetalk_avatar1
+  avatar_id: "linda"
+  fps: 25
+  # WS PCM ingress contract (hard constraint; reminder here, validated literally at runtime)
+  expected_sample_rate: 16000
+  expected_format: "pcm_s16le"
+  expected_channels: 1

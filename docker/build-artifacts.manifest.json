@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "defaults": {
+    "wheel_base_url": "https://github.com/tonera/vitoom/releases/download/components",
+    "pandoc_version": "3.6.4",
+    "elasticsearch_version": "8.15.5",
+    "e5_repo_id": "Xenova/multilingual-e5-small"
+  },
+  "architectures": {
+    "x86_64": {
+      "docker_target_arch": "amd64",
+      "es_arch": "x86_64",
+      "pandoc_deb_arch": "amd64"
+    },
+    "aarch64": {
+      "docker_target_arch": "arm64",
+      "es_arch": "aarch64",
+      "pandoc_deb_arch": "arm64"
+    }
+  },
+  "components": {
+    "backend": {
+      "label": "Backend（ES / Pandoc / E5 模型）",
+      "artifacts": [
+        {
+          "id": "pandoc",
+          "dest": "docker/backend/artifacts/{arch}/pandoc-{pandoc_version}-1-{pandoc_deb_arch}.deb",
+          "url": "https://github.com/jgm/pandoc/releases/download/{pandoc_version}/pandoc-{pandoc_version}-1-{pandoc_deb_arch}.deb"
+        },
+        {
+          "id": "elasticsearch",
+          "dest": "docker/backend/artifacts/{arch}/elasticsearch-{elasticsearch_version}-linux-{es_arch}.tar.gz",
+          "url": "https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-{elasticsearch_version}-linux-{es_arch}.tar.gz"
+        },
+        {
+          "id": "e5_onnx_model",
+          "dest": "docker/backend/artifacts/{arch}/multilingual-e5-small-onnx/onnx/model.onnx",
+          "type": "e5_model",
+          "huggingface_path": "onnx/model_quantized.onnx",
+          "modelscope_path": "onnx/model_int8.onnx"
+        },
+        {
+          "id": "e5_tokenizer",
+          "dest": "docker/backend/artifacts/{arch}/multilingual-e5-small-onnx/tokenizer.json",
+          "type": "e5_file",
+          "huggingface_path": "tokenizer.json",
+          "modelscope_path": "tokenizer.json"
+        }
+      ]
+    },
+    "visual": {
+      "label": "Visual 推理（4 个预编译 wheel，torch 2.11）",
+      "artifacts": [
+        {
+          "id": "flash_attn",
+          "dest": "docker/inference/wheels/{arch}/flash_attn-2.8.3+cu130torch2.11-cp311-cp311-linux_x86_64.whl",
+          "dest_aarch64": "docker/inference/wheels/{arch}/flash_attn-2.8.3+cu13torch2.11cxx11abitrue-cp311-cp311-linux_aarch64.whl",
+          "url_x86_64": "{wheel_base_url}/flash_attn-2.8.3+cu130torch2.11-cp311-cp311-linux_x86_64.whl",
+          "url_aarch64": "{wheel_base_url}/flash_attn-2.8.3+cu13torch2.11cxx11abitrue-cp311-cp311-linux_aarch64.whl"
+        },
+        {
+          "id": "spas_sage_attn",
+          "dest": "docker/inference/wheels/{arch}/spas_sage_attn-0.1.0-cp311-cp311-linux_x86_64.whl",
+          "dest_aarch64": "docker/inference/wheels/{arch}/spas_sage_attn-0.1.0-cp311-cp311-linux_aarch64.whl",
+          "url_x86_64": "{wheel_base_url}/spas_sage_attn-0.1.0-cp311-cp311-linux_x86_64.whl",
+          "url_aarch64": "{wheel_base_url}/spas_sage_attn-0.1.0-cp311-cp311-linux_aarch64.whl"
+        },
+        {
+          "id": "nunchaku",
+          "dest": "docker/inference/wheels/{arch}/nunchaku-1.3.0.dev20260528+cu13.0torch2.11-cp311-cp311-linux_x86_64.whl",
+          "dest_aarch64": "docker/inference/wheels/{arch}/nunchaku-1.3.0.dev20260528+cu13.0torch2.11-cp311-cp311-linux_aarch64.whl",
+          "url_x86_64": "{wheel_base_url}/nunchaku-1.3.0.dev20260528+cu13.0torch2.11-cp311-cp311-linux_x86_64.whl",
+          "url_aarch64": "{wheel_base_url}/nunchaku-1.3.0.dev20260528+cu13.0torch2.11-cp311-cp311-linux_aarch64.whl"
+        },
+        {
+          "id": "turbodiffusion",
+          "dest": "docker/inference/wheels/{arch}/turbodiffusion-1.0.0-cp311-cp311-linux_x86_64.whl",
+          "dest_aarch64": "docker/inference/wheels/{arch}/turbodiffusion-1.0.0-cp311-cp311-linux_aarch64.whl",
+          "url_x86_64": "{wheel_base_url}/turbodiffusion-1.0.0-cp311-cp311-linux_x86_64.whl",
+          "url_aarch64": "{wheel_base_url}/turbodiffusion-1.0.0-cp311-cp311-linux_aarch64.whl"
+        }
+      ]
+    },
+    "mini": {
+      "label": "Mini 推理（flash_attn wheel，torch 2.11，与 Visual 相同）",
+      "depends_on": ["visual"],
+      "note": "Mini 复用 Visual 的 flash_attn wheel；仅选择 mini 时会自动下载 visual 的 flash_attn。"
+    },
+    "audio": {
+      "label": "Audio 推理（flash_attn wheel，torch 2.9.1）",
+      "artifacts": [
+        {
+          "id": "flash_attn_audio",
+          "dest": "docker/inference/wheels/{arch}/flash_attn-2.8.3+cu130torch2.9-cp311-cp311-linux_x86_64.whl",
+          "dest_aarch64": "docker/inference/wheels/{arch}/flash_attn-2.8.3+cu13torch2.9cxx11abitrue-cp311-cp311-linux_aarch64.whl",
+          "url_x86_64": "{wheel_base_url}/flash_attn-2.8.3+cu130torch2.9-cp311-cp311-linux_x86_64.whl",
+          "url_aarch64": "{wheel_base_url}/flash_attn-2.8.3+cu13torch2.9cxx11abitrue-cp311-cp311-linux_aarch64.whl"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,2 @@
+# VoxCPM service dependencies.
+-r /app/inference/audio/requirement-voxcpm-nano.txt

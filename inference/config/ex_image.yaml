@@ -1,0 +1,15 @@
+# Example inferencer startup configuration
+# Tauri service UI creates this file when starting the inferencer
+# Path: inference/config/{service_id}.yaml
+
+# Service metadata
+service_id: "image-vitoom"  #
+name: "Image generation service"  # Display name
+type: "diffusers"  # Inferencer type: vllm/ollama/diffusers/DiffSynth/modelscope etc.
+service_type: "image"  # Content type: image/video/audio/text
+
+# Message transport (optional)
+# - Unset: legacy behavior (WS task ingress + WS result/status egress)
+# - Set: assemble from ingresses/egresses (supports redis list: BRPOP / LPUSH)
+
+

@@ -1,0 +1,195 @@
+[
+  {
+    "key": "lineArt",
+    "job_type": "ED",
+    "prompt": "Convert the image to a clear black and white line drawing, preserving the main structure and details, simplifying the background as much as possible.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "转线稿"
+  },
+  {
+    "key": "colorizeLineArt",
+    "job_type": "ED",
+    "prompt": "Colorize the line art: add clean, harmonious colors while preserving the original linework, structure, and details; keep the composition unchanged; apply subtle shading if appropriate; keep the background simple.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "线稿上色"
+  },
+  {
+    "key": "faceRestore",
+    "job_type": "SR",
+    "prompt": "",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 2,
+    "label": "人脸修复"
+  },
+  {
+    "key": "ghibli",
+    "job_type": "ED",
+    "prompt": "Convert the image to Studio Ghibli animation style: soft colors, delicate light and shadow, warm atmosphere, preserving the main composition.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "吉卜力"
+  },
+  {
+    "key": "shinkai",
+    "job_type": "ED",
+    "prompt": "Convert the image to Makoto Shinkai style: transparent light, highly saturated sky, delicate light and shadow and colors, preserving the main composition.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "新海诚"
+  },
+  {
+    "key": "removeBg",
+    "job_type": "RBG",
+    "prompt": "",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "移除背景"
+  },
+  {
+    "key": "bgBlur",
+    "job_type": "ED",
+    "prompt": "Blur the background to create a natural shallow depth of field (bokeh). Keep the subject sharp and unchanged; preserve edges cleanly; keep the result realistic.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "背景虚化"
+  },
+  {
+    "key": "solidBg",
+    "job_type": "ED",
+    "prompt": "Replace the background with a clean solid white background. Keep the subject unchanged; preserve fine details and clean edges; avoid halos; make it look like a studio product photo.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "纯色背景"
+  },
+  {
+    "key": "removeClutter",
+    "job_type": "ED",
+    "prompt": "Remove unwanted objects/clutter from the image and fill the removed areas naturally. Keep the main subject and composition unchanged; make the edit seamless with consistent texture and lighting.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "移除杂物"
+  },
+  {
+    "key": "portraitRetouch",
+    "job_type": "ED",
+    "prompt": "Natural portrait retouch: remove blemishes and small imperfections, even skin tone while preserving skin texture, keep the person's identity unchanged; avoid over-smoothing; keep colors natural.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "人像美化"
+  },
+  {
+    "key": "brighten",
+    "job_type": "ED",
+    "prompt": "Improve lighting and exposure: brighten shadows, balance highlights, enhance clarity while keeping the subject and composition unchanged; make it look natural, not over-processed.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "补光提亮"
+  },
+  {
+    "key": "colorEnhance",
+    "job_type": "ED",
+    "prompt": "Enhance color and contrast: correct white balance, increase vibrance slightly, improve overall clarity while keeping the subject unchanged; avoid over-saturation and preserve a natural look.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "色彩增强"
+  },
+  {
+    "key": "watercolor",
+    "job_type": "ED",
+    "prompt": "Convert the image to a watercolor painting style: soft washes, subtle paper texture, gentle edges; preserve the main composition and subject; keep it artistic and clean.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "水彩风"
+  },
+  {
+    "key": "cyberpunk",
+    "job_type": "ED",
+    "prompt": "Convert the image to a cyberpunk style: neon lighting, futuristic atmosphere, high-contrast dramatic light and shadow; preserve the main composition and subject structure.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "赛博朋克"
+  },
+  {
+    "key": "oilPainting",
+    "job_type": "ED",
+    "prompt": "Convert the image to an oil painting style: rich brush strokes, subtle canvas texture, painterly lighting; preserve the subject and composition; keep details coherent and clean.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "油画风"
+  },
+  {
+    "key": "pencilSketch",
+    "job_type": "ED",
+    "prompt": "Convert the image to a graphite pencil sketch: clean pencil lines with natural shading and hatching; preserve the subject and composition; keep the background minimal.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "铅笔素描"
+  },
+  {
+    "key": "figurine3d",
+    "job_type": "ED",
+    "prompt": "Convert the subject into a high-quality 3D collectible figurine/toy style: clean materials, subtle reflections, studio lighting; preserve pose and composition; keep background simple.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "3D手办"
+  },
+  {
+    "key": "filmLook",
+    "job_type": "ED",
+    "prompt": "Apply a cinematic film color grade: balanced contrast, soft highlights, natural skin tones, subtle film grain; keep the subject unchanged; avoid over-saturation.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "胶片电影感"
+  },
+  {
+    "key": "nightEnhance",
+    "job_type": "ED",
+    "prompt": "Night photo enhancement: reduce noise, recover shadow details, balance highlights, improve clarity while keeping a natural look; avoid over-sharpening and preserve the subject identity.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "夜景增强"
+  },
+  {
+    "key": "redraw",
+    "job_type": "ED",
+    "prompt": "High-quality redraw of the image: keep the subject and composition unchanged, enhance details and texture, make the overall image clearer and more natural.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "重绘"
+  },
+  {
+    "key": "upscaleHd",
+    "job_type": "SR",
+    "prompt": "",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 4,
+    "label": "高清"
+  },
+  {
+    "key": "removeText",
+    "job_type": "ED",
+    "prompt": "Remove text content from the image, complete the occluded areas, making the picture natural and seamless.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "移除文字"
+  },
+  {
+    "key": "removeWatermark",
+    "job_type": "ED",
+    "prompt": "Remove watermarks/logos from the image, complete the occluded areas, making the picture natural and seamless.",
+    "load_name": "FLUX.2-klein-9B-Nunchaku",
+    "upscale": 1,
+    "label": "移除水印"
+  },
+  {
+    "key": "quickRemove",
+    "job_type": "ED",
+    "prompt": "<lora:clothes_remover_v0:1>,remove clothes",
+    "load_name": "FLUX.1-Kontext-dev",
+    "upscale": 1,
+    "label": "一键移除",
+    "keep_size": "init_images"
+  }
+]

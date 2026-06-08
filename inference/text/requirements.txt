@@ -1,0 +1,62 @@
+# 文本推理服务专用依赖
+# 建议在独立虚拟环境中安装，避免与 image/audio worker 的依赖互相影响。
+#
+# 重要：
+# 1) `vllm` 请按部署机器的 CUDA/ROCm 环境选择官方推荐安装方式
+# 2) 再执行 `pip install -r inference/text/requirements.txt`
+
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+PyYAML>=6.0
+
+# HTTP / 文件 / WS
+httpx>=0.25.0
+requests>=2.31.0
+aiohttp>=3.9.0
+aiofiles>=23.2.0
+websockets>=12.0
+
+# 队列与模型元信息
+redis>=5.0.0
+modelscope
+huggingface_hub
+socksio
+
+# 工具与日志
+python-dateutil>=2.8.2
+pytz>=2023.3
+python-dotenv>=1.0.0
+colorlog>=6.8.0
+psutil>=5.9.0
+nvidia-ml-py>=13.0.0
+
+# Gemma 4 / Qwen3 文本模型
+# `vllm` 不放在本 requirements 里统一安装：
+# 请先按部署环境执行类似：
+#   uv pip install -U vllm --pre \
+#     --extra-index-url https://wheels.vllm.ai/nightly/cu129 \
+#     --extra-index-url https://download.pytorch.org/whl/cu129 \
+#     --index-strategy unsafe-best-match
+# 然后再安装本文件其余依赖。
+transformers==5.8.0
+accelerate>=0.24.0
+safetensors>=0.4.0
+sentencepiece
+qwen-vl-utils
+torchcodec
+markitdown[pdf,docx,xlsx,xls,pptx,outlook]
+
+# Ollama 运行时（GGUF，Apple Silicon / AMD / NVIDIA 跨平台）
+# 仅在 service_*.yaml 里 `config.runtime.backend=ollama` 时才会被实际加载；
+# 如果你只跑 vllm/transformers，可以不安装，但装了也无副作用。
+# 使用前需先启动 ollama daemon：
+#   macOS:   brew install ollama && ollama serve
+#   Linux:   curl -fsSL https://ollama.com/install.sh | sh  && systemctl --user start ollama
+# 客户端 SDK：
+ollama>=0.4.0
+imageio
+opencv-python
+peft
+ftfy
+einops
+fastsafetensors>=0.1.10

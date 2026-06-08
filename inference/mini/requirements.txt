@@ -1,0 +1,62 @@
+# Mini 推理服务依赖
+# 注意：项目根 requirements.txt 已包含公共依赖（vllm, transformers, torch, pillow, requests 等）
+# 本文件仅列出 mini 服务**额外**需要的包，便于按模块独立安装。
+
+# PDF 解析（OCR handler 把 PDF 逐页渲染为 PNG 再喂给模型）
+pymupdf>=1.24.0
+pillow
+# 版面分析（text 模式图文混排的前置步骤）
+# 纯 PyTorch，无需 paddle。
+# 权重文件需要手动放置到:
+#   {models_dir or weights_dir}/DocLayout_YOLO_DocStructBench_imgsz1280_2501/doclayout_yolo_docstructbench_imgsz1280_2501.pt
+# 该文件可从 https://huggingface.co/juliozhao/DocLayout_YOLO_DocStructBench_imgsz1280_2501 下载。
+doclayout-yolo>=0.0.3
+# torch/torchvision/torchaudio 不锁版本，跟随 vllm wheel 一起装（见文末 vLLM 安装说明）
+accelerate
+# ---------------------------------------------------------------------------
+# CUDA nvrtc 运行时库（torch 需要 libnvrtc.so.<major> 和 libnvrtc-builtins.so.<major>.<minor>）
+# - torch cu13 wheel 自身**不再**自带这些 .so（NVIDIA 拆成了独立 pip 包）
+# - 若系统只装了 CUDA 12.x toolkit，运行到部分 GPU reduction/JIT 路径会炸
+#       nvrtc: error: failed to open libnvrtc-builtins.so.13.0.
+# - 解决：装这个 wheel；inference/common/cuda_libs_bootstrap.py 会在 main.py 起来时
+#   自动把它的 so 目录前置到 LD_LIBRARY_PATH 并 re-exec，用户无需手动设置环境变量。
+# - 名字兼容：老名 nvidia-cuda-nvrtc-cu13 已被上游标记 deprecated，改用 nvidia-cuda-nvrtc
+nvidia-cuda-nvrtc; platform_system == "Linux"
+# GLM-OCR 的 tokenizer_config.json 里 tokenizer_class=TokenizersBackend，
+# 仅在 transformers>=5.1.0 中存在；旧版本会抛
+# "Tokenizer class TokenizersBackend does not exist or is not currently imported."
+transformers>=5.1.0
+redis
+llvmlite>=0.40.0
+aiohttp
+websockets
+aiofiles
+pydantic
+pydantic-settings>=2.1.0
+PyYAML>=6.0
+httpx>=0.25.0
+socksio
+modelscope
+huggingface-hub
+# =============================================================================
+# vLLM 安装说明（重要）
+# -----------------------------------------------------------------------------
+# 本 requirements 故意不列 `vllm`，因为 vllm 的 _C.abi3.so 与 torch 是 ABI 绑定
+# 关系，必须保证二者从同一个 CUDA wheel 源装出。一旦 torch 被 -r requirements.txt
+# 升级/替换过，vllm 必须重装，否则会出现：
+#   ImportError: .../vllm/_C.abi3.so: undefined symbol: _ZN3c104cuda29c10_cuda_...
+# （libtorch 的 C++ 符号找不到）
+#
+# 安装顺序：先装本文件（torch 会被 pin 到 2.9.1），再"单独"装 vllm。
+#
+# CUDA 12.4：
+#   pip install vllm --extra-index-url https://download.pytorch.org/whl/cu124
+#
+# CUDA 13.0（本项目默认；nightly 渠道，带 glm_ocr 支持）：
+#   uv pip install -U vllm --pre \
+#     --extra-index-url https://wheels.vllm.ai/nightly/cu130 \
+#     --extra-index-url https://download.pytorch.org/whl/cu130 \
+#     --index-strategy unsafe-best-match
+#
+# 升级 torch 或重装 torch 后，务必 `pip uninstall -y vllm` 再按上面重新安装。
+# =============================================================================

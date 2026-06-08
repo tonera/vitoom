@@ -1,0 +1,55 @@
+id: preset-travel-planner-agent
+name: 旅行规划助手
+type: general
+description: 对标 CrewAI 官方教程的双 Agent 协作旅行规划 Agent
+
+config:
+  agents:
+    - name: city_expert
+      role: 本地城市专家
+      goal: 基于用户需求，提供关于目的地城市的最佳旅行见解。
+      backstory: >
+        你是一位对全球多个城市了如指掌的旅行向导，熟悉各地的历史遗迹、特色美食、小众宝藏以及必游景点。
+        当信息可能过时时，你会使用 tavily_search 进行联网查询，确保内容可靠、实用。
+      tools:
+        - tavily_search
+      verbose: true
+      memory: true
+      allow_delegation: false
+
+    - name: travel_concierge
+      role: 旅行规划师
+      goal: 为客户创建一份详细、可执行的个性化旅行行程。
+      backstory: >
+        你是一位经验丰富的旅行规划师，擅长将零散的景点信息整合成完美、可执行的旅行计划。
+        你会基于城市专家提供的景点清单，合理安排每日节奏、交通路线和餐饮推荐，
+        必要时使用 tavily_search 补充实时信息（例如营业时间、交通建议或季节性提示）。
+      tools:
+        - tavily_search
+      verbose: true
+      memory: true
+      allow_delegation: false
+
+  tasks:
+    - id: identify_attractions_task
+      agent: city_expert
+      description: >
+        根据用户的需求识别目的地最值得游览的 5 个景点，覆盖历史遗迹、美食和娱乐活动。
+        如果需要最新信息，请使用 tavily_search 进行联网查询。用户输入：{message}
+      expected_output: 一个包含 5 个景点的 Markdown 列表，每项附上简短描述与推荐理由。
+
+    - id: plan_itinerary_task
+      agent: travel_concierge
+      context:
+        - identify_attractions_task
+      description: >
+        根据上一步的景点列表，为用户创建一份为期 3 天的详细行程计划。
+        输出必须为中文 Markdown，包含每日活动安排、餐厅建议和交通提示。
+        如需确认营业时间或路线，请使用 tavily_search 辅助查询。
+      expected_output: >
+        一份详细的 3 日游行程，使用 Markdown 组织，包含每日活动、餐厅建议和交通提示，以及简短的注意事项。
+
+  runtime_defaults:
+    process: sequential
+    priority: 5
+    max_tools_per_run: 3

@@ -1,0 +1,195 @@
+name: vitoom-inference
+
+x-inference-environment: &inference-environment
+  VITOOM_BACKEND_URL: ${VITOOM_BACKEND_URL:?Set VITOOM_BACKEND_URL in .env, for example http://BACKEND_IP:8888}
+  VITOOM_WS_URL: ${VITOOM_WS_URL:?Set VITOOM_WS_URL in .env, for example ws://BACKEND_IP:8888}
+  VITOOM_INFERENCE_UPLOAD_AUTH_SECRET: ${VITOOM_INFERENCE_UPLOAD_AUTH_SECRET:?Set VITOOM_INFERENCE_UPLOAD_AUTH_SECRET in .env}
+  VITOOM_SUPERVISOR_AGENT_PORT: ${VITOOM_SUPERVISOR_AGENT_PORT:-9001}
+  VITOOM_SUPERVISOR_URL: ${VITOOM_SUPERVISOR_URL:-}
+  VITOOM_MODELS_DIR: resources/models
+  VITOOM_WEIGHTS_DIR: resources/weights
+  VITOOM_LORAS_DIR: resources/loras
+  VITOOM_OUTPUTS_DIR: resources/outputs
+  VITOOM_OVERWRITE_CONFIG: ${VITOOM_OVERWRITE_CONFIG:-0}
+
+services:
+  visual:
+    image: ${VITOOM_VISUAL_IMAGE:-vitoom-inference-visual:experimental-cu130-torch2.11-${VITOOM_TARGET_ARCH:-x86_64}}
+    container_name: vitoom-inference-visual
+    restart: unless-stopped
+    profiles:
+      - visual
+    gpus: all
+    shm_size: "16gb"
+    ipc: host
+    environment:
+      <<: *inference-environment
+      VITOOM_SUPERVISOR_URL: ${VITOOM_VISUAL_SUPERVISOR_URL:-}
+      VITOOM_PIPELINE_CACHE_TTL_SECONDS: ${VITOOM_PIPELINE_CACHE_TTL_SECONDS:-0}
+    ports:
+      - "${VITOOM_VISUAL_SUPERVISOR_HOST_PORT:-9001}:${VITOOM_SUPERVISOR_AGENT_PORT:-9001}"
+    volumes:
+      - ${VITOOM_MODELS_HOST_DIR:-./resources/models}:/app/resources/models
+      - ${VITOOM_WEIGHTS_HOST_DIR:-./resources/weights}:/app/resources/weights
+      - ${VITOOM_LORAS_HOST_DIR:-./resources/loras}:/app/resources/loras
+      - ${VITOOM_OUTPUTS_HOST_DIR:-./resources/outputs}:/app/resources/outputs
+      - ./data/inference/config:/app/inference/config
+      - ./data/inference/cache/visual/triton:/root/.triton/cache
+      - ./data/logs/inference/visual:/app/logs
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:${VITOOM_SUPERVISOR_AGENT_PORT:-9001}/health || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vitoom-net
+
+  text:
+    image: ${VITOOM_TEXT_IMAGE:-vitoom-inference-text:experimental-cu130-torch2.11-${VITOOM_TARGET_ARCH:-x86_64}}
+    container_name: vitoom-inference-text
+    restart: unless-stopped
+    profiles:
+      - text
+    gpus: all
+    shm_size: "16gb"
+    ipc: host
+    environment:
+      <<: *inference-environment
+      VITOOM_SUPERVISOR_URL: ${VITOOM_TEXT_SUPERVISOR_URL:-}
+    ports:
+      - "${VITOOM_TEXT_SUPERVISOR_HOST_PORT:-9002}:${VITOOM_SUPERVISOR_AGENT_PORT:-9001}"
+    volumes:
+      - ${VITOOM_MODELS_HOST_DIR:-./resources/models}:/app/resources/models
+      - ${VITOOM_WEIGHTS_HOST_DIR:-./resources/weights}:/app/resources/weights
+      - ${VITOOM_LORAS_HOST_DIR:-./resources/loras}:/app/resources/loras
+      - ${VITOOM_OUTPUTS_HOST_DIR:-./resources/outputs}:/app/resources/outputs
+      - ./data/inference/config:/app/inference/config
+      - ./data/inference/cache/text/flashinfer:/root/.cache/flashinfer
+      - ./data/inference/cache/text/vllm:/root/.cache/vllm
+      - ./data/logs/inference/text:/app/logs
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:${VITOOM_SUPERVISOR_AGENT_PORT:-9001}/health || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vitoom-net
+
+  audio:
+    image: ${VITOOM_AUDIO_IMAGE:-vitoom-inference-audio:experimental-cu130-torch2.9.1-${VITOOM_TARGET_ARCH:-x86_64}}
+    container_name: vitoom-inference-audio
+    restart: unless-stopped
+    profiles:
+      - audio
+    gpus: all
+    shm_size: "16gb"
+    ipc: host
+    environment:
+      <<: *inference-environment
+      VITOOM_SUPERVISOR_URL: ${VITOOM_AUDIO_SUPERVISOR_URL:-}
+    ports:
+      - "${VITOOM_AUDIO_SUPERVISOR_HOST_PORT:-9003}:${VITOOM_SUPERVISOR_AGENT_PORT:-9001}"
+    volumes:
+      - ${VITOOM_MODELS_HOST_DIR:-./resources/models}:/app/resources/models
+      - ${VITOOM_WEIGHTS_HOST_DIR:-./resources/weights}:/app/resources/weights
+      - ${VITOOM_LORAS_HOST_DIR:-./resources/loras}:/app/resources/loras
+      - ${VITOOM_OUTPUTS_HOST_DIR:-./resources/outputs}:/app/resources/outputs
+      - ./data/inference/config:/app/inference/config
+      - ./data/inference/cache/audio/triton:/root/.triton/cache
+      - ./data/inference/cache/audio/vllm:/root/.cache/vllm
+      - ./data/inference/cache/audio/torch:/root/.cache/torch
+      - ./data/logs/inference/audio:/app/logs
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:${VITOOM_SUPERVISOR_AGENT_PORT:-9001}/health || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vitoom-net
+
+  mini:
+    image: ${VITOOM_MINI_IMAGE:-vitoom-inference-mini:experimental-cu130-torch2.11-${VITOOM_TARGET_ARCH:-x86_64}}
+    container_name: vitoom-inference-mini
+    restart: unless-stopped
+    profiles:
+      - mini
+    gpus: all
+    shm_size: "16gb"
+    ipc: host
+    environment:
+      <<: *inference-environment
+      VITOOM_SUPERVISOR_URL: ${VITOOM_MINI_SUPERVISOR_URL:-}
+      VITOOM_PIPELINE_CACHE_TTL_SECONDS: ${VITOOM_PIPELINE_CACHE_TTL_SECONDS:-0}
+    ports:
+      - "${VITOOM_MINI_SUPERVISOR_HOST_PORT:-9005}:${VITOOM_SUPERVISOR_AGENT_PORT:-9001}"
+    volumes:
+      - ${VITOOM_MODELS_HOST_DIR:-./resources/models}:/app/resources/models
+      - ${VITOOM_WEIGHTS_HOST_DIR:-./resources/weights}:/app/resources/weights
+      - ${VITOOM_LORAS_HOST_DIR:-./resources/loras}:/app/resources/loras
+      - ${VITOOM_OUTPUTS_HOST_DIR:-./resources/outputs}:/app/resources/outputs
+      - ./data/inference/config:/app/inference/config
+      - ./data/logs/inference/mini:/app/logs
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:${VITOOM_SUPERVISOR_AGENT_PORT:-9001}/health || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vitoom-net
+
+  download:
+    image: ${VITOOM_DOWNLOAD_IMAGE:-vitoom-inference-download:experimental}
+    container_name: vitoom-inference-download
+    restart: unless-stopped
+    profiles:
+      - download
+    environment:
+      <<: *inference-environment
+      VITOOM_SUPERVISOR_URL: ${VITOOM_DOWNLOAD_SUPERVISOR_URL:-}
+      VITOOM_CIVITAI_TOKEN: ${VITOOM_CIVITAI_TOKEN:-}
+    ports:
+      - "${VITOOM_DOWNLOAD_SUPERVISOR_HOST_PORT:-9004}:${VITOOM_SUPERVISOR_AGENT_PORT:-9001}"
+    volumes:
+      - ${VITOOM_MODELS_HOST_DIR:-./resources/models}:/app/resources/models
+      - ${VITOOM_WEIGHTS_HOST_DIR:-./resources/weights}:/app/resources/weights
+      - ${VITOOM_LORAS_HOST_DIR:-./resources/loras}:/app/resources/loras
+      - ${VITOOM_OUTPUTS_HOST_DIR:-./resources/outputs}:/app/resources/outputs
+      - ./data/inference/config:/app/inference/config
+      - ./data/logs/inference/download:/app/logs
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:${VITOOM_SUPERVISOR_AGENT_PORT:-9001}/health || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vitoom-net
+
+networks:
+  vitoom-net:
+    external: true
+    name: vitoom-net

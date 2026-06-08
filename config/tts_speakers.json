@@ -1,0 +1,139 @@
+{
+  "version": 1,
+  "families": {
+    "qwen": {
+      "default_speaker": "Vivian",
+      "speakers": [
+        {
+          "name": "Vivian",
+          "label": "Vivian",
+          "description": "Bright young female voice with a slightly sharp edge.",
+          "language": "Chinese"
+        },
+        {
+          "name": "Serena",
+          "label": "Serena",
+          "description": "Warm, gentle young female voice.",
+          "language": "Chinese"
+        },
+        {
+          "name": "Uncle_Fu",
+          "label": "Uncle_Fu",
+          "description": "Deep, mellow mature male voice.",
+          "language": "Chinese"
+        },
+        {
+          "name": "Dylan",
+          "label": "Dylan",
+          "description": "Clear, natural young Beijing male voice.",
+          "language": "Chinese (Beijing dialect)"
+        },
+        {
+          "name": "Eric",
+          "label": "Eric",
+          "description": "Lively Chengdu male voice with a slightly hoarse, bright quality.",
+          "language": "Chinese (Sichuan dialect)"
+        },
+        {
+          "name": "Ryan",
+          "label": "Ryan",
+          "description": "Dynamic male voice with strong rhythm.",
+          "language": "English"
+        },
+        {
+          "name": "Aiden",
+          "label": "Aiden",
+          "description": "Clear, mid-range sunny American male voice.",
+          "language": "English"
+        },
+        {
+          "name": "Ono_Anna",
+          "label": "Ono_Anna",
+          "description": "Light, agile playful Japanese female voice.",
+          "language": "Japanese"
+        },
+        {
+          "name": "Sohee",
+          "label": "Sohee",
+          "description": "Warm Korean female voice rich in emotion.",
+          "language": "Korean"
+        }
+      ]
+    },
+    "voxcpm": {
+      "default_speaker": "xinran",
+      "speakers": [
+        {
+          "name": "linda",
+          "label": "linda",
+          "description": "Chinese female voice",
+          "language": "Chinese",
+          "reference_audio": "third_party/vibevoice_demo/voices/zh-linda.wav"
+        },
+        {
+          "name": "bbc",
+          "label": "bbc",
+          "description": "English news broadcast style",
+          "language": "English",
+          "reference_audio": "third_party/vibevoice_demo/voices/en-bbc.wav"
+        },
+        {
+          "name": "luoli",
+          "label": "luoli",
+          "description": "Chinese child voice",
+          "language": "Chinese",
+          "reference_audio": "third_party/vibevoice_demo/voices/zh-luoli.wav"
+        },
+        {
+          "name": "anchen",
+          "label": "anchen",
+          "description": "Chinese mature male voice",
+          "language": "Chinese",
+          "reference_audio": "third_party/vibevoice_demo/voices/zh-Anchen_man_bgm.wav"
+        },
+        {
+          "name": "bowen",
+          "label": "bowen",
+          "description": "Chinese young male voice",
+          "language": "Chinese",
+          "reference_audio": "third_party/vibevoice_demo/voices/zh-Bowen_man.wav"
+        },
+        {
+          "name": "xinran",
+          "label": "xinran",
+          "description": "Chinese female voice",
+          "language": "Chinese",
+          "reference_audio": "third_party/vibevoice_demo/voices/zh-Xinran_woman.wav"
+        },
+        {
+          "name": "samuel",
+          "label": "samuel",
+          "description": "English male voice with Indian accent",
+          "language": "English (Indian accent)",
+          "reference_audio": "third_party/vibevoice_demo/voices/in-Samuel_man.wav"
+        },
+        {
+          "name": "alice",
+          "label": "alice",
+          "description": "English female voice",
+          "language": "English",
+          "reference_audio": "third_party/vibevoice_demo/voices/en-Alice_woman.wav"
+        },
+        {
+          "name": "carter",
+          "label": "carter",
+          "description": "English male voice",
+          "language": "English",
+          "reference_audio": "third_party/vibevoice_demo/voices/en-Carter_man.wav"
+        },
+        {
+          "name": "Dora",
+          "label": "dora",
+          "description": "Chinese female voice",
+          "language": "Chinese",
+          "reference_audio": "third_party/vibevoice_demo/voices/zh-dora-girl.wav"
+        }
+      ]
+    }
+  }
+}

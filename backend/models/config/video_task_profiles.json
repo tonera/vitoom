@@ -1,0 +1,533 @@
+{
+  "order": [
+    "t2v",
+    "i2v",
+    "ti2v",
+    "vicv",
+    "ivv2v",
+    "s2v",
+    "inp",
+    "ccv"
+  ],
+  "profiles": {
+    "t2v": {
+      "label": "文生视频",
+      "description": "通过提示词直接生成视频",
+      "job_type": "MKV",
+      "mkv_mode": "t2v",
+      "controls": {
+        "lora": true,
+        "aspect_ratio": true,
+        "resolution": true,
+        "num_images": true,
+        "advanced": true
+      },
+      "inputs": {
+        "prompt": {
+          "visible": true,
+          "required": true,
+          "label": "提示词",
+          "placeholder": "描述你想要生成的视频内容..."
+        },
+        "url": {
+          "visible": false,
+          "required": false,
+          "label": "参考图"
+        },
+        "ref_video": {
+          "visible": false,
+          "required": false,
+          "label": "参考视频"
+        },
+        "face_video": {
+          "visible": false,
+          "required": false,
+          "label": "面部视频"
+        },
+        "image_file2": {
+          "visible": false,
+          "required": false,
+          "label": "末帧"
+        },
+        "prompt_wav_path": {
+          "visible": false,
+          "required": false,
+          "label": "音频"
+        },
+        "direction": {
+          "visible": false,
+          "required": false,
+          "label": "镜头方向"
+        },
+        "speed": {
+          "visible": false,
+          "required": false,
+          "label": "镜头速度",
+          "default": 1
+        }
+      },
+      "supported_resolutions": [
+        480,
+        720
+      ],
+      "default_resolution": 720
+    },
+    "i2v": {
+      "label": "图生视频",
+      "description": "上传参考图生成视频，提示词可选",
+      "job_type": "MKV",
+      "mkv_mode": "i2v",
+      "controls": {
+        "lora": true,
+        "aspect_ratio": true,
+        "resolution": true,
+        "num_images": true,
+        "advanced": true
+      },
+      "inputs": {
+        "prompt": {
+          "visible": true,
+          "required": false,
+          "label": "提示词",
+          "placeholder": "可选，补充描述动态效果..."
+        },
+        "url": {
+          "visible": true,
+          "required": true,
+          "label": "参考图"
+        },
+        "ref_video": {
+          "visible": false,
+          "required": false,
+          "label": "参考视频"
+        },
+        "face_video": {
+          "visible": false,
+          "required": false,
+          "label": "面部视频"
+        },
+        "image_file2": {
+          "visible": false,
+          "required": false,
+          "label": "末帧"
+        },
+        "prompt_wav_path": {
+          "visible": false,
+          "required": false,
+          "label": "音频"
+        },
+        "direction": {
+          "visible": false,
+          "required": false,
+          "label": "镜头方向"
+        },
+        "speed": {
+          "visible": false,
+          "required": false,
+          "label": "镜头速度",
+          "default": 1
+        }
+      },
+      "supported_resolutions": [
+        480,
+        720
+      ],
+      "default_resolution": 720
+    },
+    "ti2v": {
+      "label": "图文生视频",
+      "description": "结合参考图和提示词共同生成视频",
+      "job_type": "MKV",
+      "mkv_mode": "ti2v",
+      "controls": {
+        "lora": true,
+        "aspect_ratio": true,
+        "resolution": true,
+        "num_images": true,
+        "advanced": true
+      },
+      "inputs": {
+        "prompt": {
+          "visible": true,
+          "required": true,
+          "label": "提示词",
+          "placeholder": "描述你希望参考图如何运动或变化..."
+        },
+        "url": {
+          "visible": true,
+          "required": true,
+          "label": "参考图"
+        },
+        "ref_video": {
+          "visible": false,
+          "required": false,
+          "label": "参考视频"
+        },
+        "face_video": {
+          "visible": false,
+          "required": false,
+          "label": "面部视频"
+        },
+        "image_file2": {
+          "visible": false,
+          "required": false,
+          "label": "末帧"
+        },
+        "prompt_wav_path": {
+          "visible": false,
+          "required": false,
+          "label": "音频"
+        },
+        "direction": {
+          "visible": false,
+          "required": false,
+          "label": "镜头方向"
+        },
+        "speed": {
+          "visible": false,
+          "required": false,
+          "label": "镜头速度",
+          "default": 1
+        }
+      },
+      "supported_resolutions": [
+        720
+      ],
+      "default_resolution": 720
+    },
+    "vicv": {
+      "label": "参考图+控制视频",
+      "description": "参考图配合控制视频生成镜头或动作变化",
+      "job_type": "MKV",
+      "mkv_mode": "vicv",
+      "controls": {
+        "lora": false,
+        "aspect_ratio": true,
+        "resolution": true,
+        "num_images": true,
+        "advanced": true
+      },
+      "inputs": {
+        "prompt": {
+          "visible": true,
+          "required": false,
+          "label": "提示词",
+          "placeholder": "可选，补充控制视频之外的内容描述..."
+        },
+        "url": {
+          "visible": true,
+          "required": true,
+          "label": "参考图"
+        },
+        "ref_video": {
+          "visible": true,
+          "required": true,
+          "label": "控制视频"
+        },
+        "face_video": {
+          "visible": false,
+          "required": false,
+          "label": "面部视频"
+        },
+        "image_file2": {
+          "visible": false,
+          "required": false,
+          "label": "末帧"
+        },
+        "prompt_wav_path": {
+          "visible": false,
+          "required": false,
+          "label": "音频"
+        },
+        "direction": {
+          "visible": false,
+          "required": false,
+          "label": "镜头方向"
+        },
+        "speed": {
+          "visible": false,
+          "required": false,
+          "label": "镜头速度",
+          "default": 1
+        }
+      },
+      "supported_resolutions": [
+        720
+      ],
+      "default_resolution": 720
+    },
+    "ivv2v": {
+      "label": "参考图+pose+face",
+      "description": "参考图叠加姿态视频与面部视频生成角色动画",
+      "job_type": "MKV",
+      "mkv_mode": "ivv2v",
+      "controls": {
+        "lora": false,
+        "aspect_ratio": true,
+        "resolution": true,
+        "num_images": true,
+        "advanced": true
+      },
+      "inputs": {
+        "prompt": {
+          "visible": true,
+          "required": false,
+          "label": "提示词",
+          "placeholder": "可选，补充角色动作与风格描述..."
+        },
+        "url": {
+          "visible": true,
+          "required": true,
+          "label": "参考图"
+        },
+        "ref_video": {
+          "visible": true,
+          "required": true,
+          "label": "Pose 视频"
+        },
+        "face_video": {
+          "visible": true,
+          "required": true,
+          "label": "Face 视频"
+        },
+        "image_file2": {
+          "visible": false,
+          "required": false,
+          "label": "末帧"
+        },
+        "prompt_wav_path": {
+          "visible": false,
+          "required": false,
+          "label": "音频"
+        },
+        "direction": {
+          "visible": false,
+          "required": false,
+          "label": "镜头方向"
+        },
+        "speed": {
+          "visible": false,
+          "required": false,
+          "label": "镜头速度",
+          "default": 1
+        }
+      },
+      "supported_resolutions": [
+        720
+      ],
+      "default_resolution": 720
+    },
+    "s2v": {
+      "label": "音生视频",
+      "description": "基于参考图和音频生成视频",
+      "job_type": "S2V",
+      "controls": {
+        "lora": false,
+        "aspect_ratio": true,
+        "resolution": true,
+        "num_images": true,
+        "advanced": true
+      },
+      "inputs": {
+        "prompt": {
+          "visible": true,
+          "required": false,
+          "label": "提示词",
+          "placeholder": "可选，补充人物表情或镜头描述..."
+        },
+        "url": {
+          "visible": true,
+          "required": true,
+          "label": "参考图"
+        },
+        "ref_video": {
+          "visible": true,
+          "required": false,
+          "label": "Pose 视频"
+        },
+        "face_video": {
+          "visible": false,
+          "required": false,
+          "label": "面部视频"
+        },
+        "image_file2": {
+          "visible": false,
+          "required": false,
+          "label": "末帧"
+        },
+        "prompt_wav_path": {
+          "visible": true,
+          "required": true,
+          "label": "音频"
+        },
+        "direction": {
+          "visible": false,
+          "required": false,
+          "label": "镜头方向"
+        },
+        "speed": {
+          "visible": false,
+          "required": false,
+          "label": "镜头速度",
+          "default": 1
+        }
+      },
+      "supported_resolutions": [
+        480,
+        720
+      ],
+      "default_resolution": 720
+    },
+    "inp": {
+      "label": "首尾帧补全",
+      "description": "通过首帧和可选末帧补全中间视频内容",
+      "job_type": "INP",
+      "controls": {
+        "lora": false,
+        "aspect_ratio": true,
+        "resolution": true,
+        "num_images": true,
+        "advanced": true
+      },
+      "inputs": {
+        "prompt": {
+          "visible": true,
+          "required": false,
+          "label": "提示词",
+          "placeholder": "可选，补充补全的视频效果..."
+        },
+        "url": {
+          "visible": true,
+          "required": true,
+          "label": "首帧"
+        },
+        "ref_video": {
+          "visible": false,
+          "required": false,
+          "label": "参考视频"
+        },
+        "face_video": {
+          "visible": false,
+          "required": false,
+          "label": "面部视频"
+        },
+        "image_file2": {
+          "visible": true,
+          "required": false,
+          "label": "末帧"
+        },
+        "prompt_wav_path": {
+          "visible": false,
+          "required": false,
+          "label": "音频"
+        },
+        "direction": {
+          "visible": false,
+          "required": false,
+          "label": "镜头方向"
+        },
+        "speed": {
+          "visible": false,
+          "required": false,
+          "label": "镜头速度",
+          "default": 1
+        }
+      },
+      "supported_resolutions": [
+        480,
+        720
+      ],
+      "default_resolution": 720
+    },
+    "ccv": {
+      "label": "镜头控制",
+      "description": "通过参考图、方向与速度控制镜头运动",
+      "job_type": "CCV",
+      "controls": {
+        "lora": false,
+        "aspect_ratio": true,
+        "resolution": true,
+        "num_images": true,
+        "advanced": true
+      },
+      "inputs": {
+        "prompt": {
+          "visible": true,
+          "required": false,
+          "label": "提示词",
+          "placeholder": "可选，补充镜头环境或视觉风格..."
+        },
+        "url": {
+          "visible": true,
+          "required": true,
+          "label": "参考图"
+        },
+        "ref_video": {
+          "visible": false,
+          "required": false,
+          "label": "参考视频"
+        },
+        "face_video": {
+          "visible": false,
+          "required": false,
+          "label": "面部视频"
+        },
+        "image_file2": {
+          "visible": false,
+          "required": false,
+          "label": "末帧"
+        },
+        "prompt_wav_path": {
+          "visible": false,
+          "required": false,
+          "label": "音频"
+        },
+        "direction": {
+          "visible": true,
+          "required": true,
+          "label": "镜头方向",
+          "options": [
+            {
+              "label": "向左",
+              "value": "left"
+            },
+            {
+              "label": "向右",
+              "value": "right"
+            },
+            {
+              "label": "向上",
+              "value": "up"
+            },
+            {
+              "label": "向下",
+              "value": "down"
+            },
+            {
+              "label": "拉近",
+              "value": "zoom_in"
+            },
+            {
+              "label": "拉远",
+              "value": "zoom_out"
+            }
+          ]
+        },
+        "speed": {
+          "visible": true,
+          "required": true,
+          "label": "镜头速度",
+          "default": 1,
+          "min": 0.1,
+          "max": 4,
+          "step": 0.1
+        }
+      },
+      "supported_resolutions": [
+        480,
+        720
+      ],
+      "default_resolution": 720
+    }
+  }
+}

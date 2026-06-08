@@ -1,0 +1,100 @@
+# 模型管理元数据 SSOT：modality（= task_type / models.modality）与管理端 family 展示名。
+# 消费方：GET /api/models/meta、任务 API task_type 校验、前端模型管理下拉。
+# 推理侧 pipeline family（sdxl/flux2）与 LoRA 别名归一见 backend/models/model_family.py、inference/common/model_families/。
+
+modalities:
+  - id: image
+    label: image
+  - id: video
+    label: video
+  - id: audio
+    label: audio
+  - id: text
+    label: text
+  - id: mini
+    label: mini
+  - id: translate
+    label: translate
+
+# value 与 label 完全一致（含大小写与符号）；新增 family 时同步登记对应 inferrer handler。
+families:
+  - id: ZImageTurbo
+    label: ZImageTurbo
+  - id: Flux.1 D
+    label: Flux.1 D
+  - id: Flux.1 Kontext
+    label: Flux.1 Kontext
+  - id: SDXL 1.0
+    label: SDXL 1.0
+  - id: Flux.2 Klein
+    label: Flux.2 Klein
+  - id: Illustrious
+    label: Illustrious
+  - id: NoobAI
+    label: NoobAI
+  - id: Pony
+    label: Pony
+  - id: Qwen
+    label: Qwen
+  - id: Qwen-text
+    label: Qwen-text
+  - id: Qwen-edit
+    label: Qwen-edit
+  - id: Qwen-tts
+    label: Qwen-tts
+  - id: Qwen-asr
+    label: Qwen-asr
+  - id: Flux.1 S
+    label: Flux.1 S
+  - id: Flux.2 D
+    label: Flux.2 D
+  - id: Chroma
+    label: Chroma
+  - id: SDXL 3.0
+    label: SDXL 3.0
+  - id: Seedance
+    label: Seedance
+  - id: seededit
+    label: seededit
+  - id: Seedream
+    label: Seedream
+  - id: Voxcpm
+    label: Voxcpm
+  - id: VibeVoice
+    label: VibeVoice
+  - id: Framepack
+    label: Framepack
+  - id: Gemini
+    label: Gemini
+  - id: Imagen
+    label: Imagen
+  - id: Omnihuman
+    label: Omnihuman
+  - id: Wan
+    label: Wan
+  - id: Wan-edit
+    label: Wan-edit
+  - id: Wan-painting
+    label: Wan-painting
+  - id: Wan-sketch
+    label: Wan-sketch
+  - id: SD15
+    label: SD15
+  - id: T2V-14B
+    label: T2V-14B
+  - id: I2V-14B
+    label: I2V-14B
+  - id: T2V-1.3B
+    label: T2V-1.3B
+  - id: TI2V-5B
+    label: TI2V-5B
+  - id: S2V-14B
+    label: S2V-14B
+  - id: Animate-14B
+    label: Animate-14B
+  - id: Gemma
+    label: Gemma
+  - id: GLM-OCR
+    label: GLM-OCR
+  - id: TranslateGemma
+    label: TranslateGemma

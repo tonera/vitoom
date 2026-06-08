@@ -1,0 +1,55 @@
+# ============================================================================
+# Mini inference service example (OCR first; future rerank / embed / layout etc.)
+#
+# Key points:
+# - service_type must be "mini"; backend /v1/tasks routes by task_type == service_type
+# - Dispatch: POST /v1/tasks { task_type: "mini", job_type: "OCR", ... }
+# - All small models (incl. GLM-OCR) registered in models table; mini YAML has no default model name
+#   · Requests must include model_name; backend fills model_class/local_path from DB
+#   · Inferencer dispatches by model_class (see inferrer._HANDLER_REGISTRY)
+# - LRU=1 + TTL eviction from inference.yaml pipeline_cache_ttl_seconds (mini reuses as-is)
+# - OCR config.runtime: backend picks transformers / vllm; shared keys sibling to backend;
+#   backend-specific keys under runtime.transformers / runtime.vllm (mini/runtime/runtime_resolver.py)
+# ============================================================================
+
+service_id: "mini"
+name: "Mini Inference Service (OCR & small models)"
+# Service-level runtime label (startup logs / monitoring); actual OCR runtime
+# from config.runtime.backend (transformers or vllm), below.
+type: "transformers"
+service_type: "mini"
+
+host: "127.0.0.1"
+port: 8006
+
+config:
+  runtime:
+    backend: "transformers"
+
+    # --- Shared (both backends: trust remote, sampling, token cap, dtype, etc.) ---
+    trust_remote_code: true
+    # OCR needs deterministic output, no sampling randomness
+    temperature: 0.0
+    top_p: 1.0
+    # Even if 4096 here, text blocks stop at 512.
+    max_new_tokens: 4096
+    dtype: "auto"
+
+    # --- transformers only ---
+    transformers:
+      # device_map: "auto"     # let accelerate place; default auto if omitted
+      model_kwargs:
+        # For more speed, try "flash_attention_2" manually.
+        attn_implementation: "sdpa"
+        low_cpu_mem_usage: true
+
+    # --- vLLM only (read when backend=vllm; can override shared keys) ---
+    vllm:
+      tensor_parallel_size: 1
+      # 0.35 enough for 0.9B GLM-OCR (KV + mm budget); released immediately after TTL eviction.
+      gpu_memory_utilization: 0.35
+      max_model_len: 8192
+      max_images_per_prompt: 4
+      engine_kwargs:
+        enforce_eager: false
+

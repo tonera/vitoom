@@ -1,0 +1,2 @@
+# Audio service dependencies.
+-r /app/inference/audio/requirements.txt

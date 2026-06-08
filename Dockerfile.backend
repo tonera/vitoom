@@ -1,0 +1,143 @@
+# syntax=docker/dockerfile:1.7
+
+FROM node:20-bookworm-slim AS frontend-builder
+
+WORKDIR /app/frontend
+
+COPY frontend/package*.json ./
+RUN --mount=type=cache,id=vitoom-npm-cache,target=/root/.npm,sharing=locked \
+    npm ci
+
+COPY frontend/ ./
+RUN npm run build
+
+
+FROM python:3.11-slim-bookworm AS backend-system-deps
+ARG TARGETARCH
+ARG VITOOM_TARGET_ARCH=x86_64
+ARG APT_MIRROR=
+ARG PANDOC_VERSION=3.6.4
+ARG ELASTICSEARCH_VERSION=8.15.5
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    VITOOM_PANDOC_BIN=/usr/bin/pandoc
+
+WORKDIR /app
+
+RUN --mount=type=cache,id=vitoom-backend-apt-cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=bind,source=docker/backend/artifacts,target=/vitoom-artifacts,readonly \
+    set -eux; \
+    require_file() { \
+        if [ ! -s "$1" ]; then \
+            echo "Missing required build artifact: $1" >&2; \
+            echo "Run: python scripts/setup_vitoom.py" >&2; \
+            exit 1; \
+        fi; \
+    }; \
+    rm -f /etc/apt/apt.conf.d/docker-clean; \
+    echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache; \
+    if [ -n "$APT_MIRROR" ]; then \
+        sed -i "s|http://deb.debian.org/debian|$APT_MIRROR|g; s|http://deb.debian.org/debian-security|$APT_MIRROR-security|g" /etc/apt/sources.list.d/debian.sources; \
+    fi; \
+    case "$TARGETARCH" in \
+        amd64) expected_arch="x86_64"; pandoc_arch="amd64"; es_arch="x86_64" ;; \
+        arm64) expected_arch="aarch64"; pandoc_arch="arm64"; es_arch="aarch64" ;; \
+        *) echo "Unsupported Docker target architecture: $TARGETARCH" >&2; exit 1 ;; \
+    esac; \
+    if [ "$expected_arch" != "$VITOOM_TARGET_ARCH" ]; then \
+        echo "VITOOM_TARGET_ARCH=${VITOOM_TARGET_ARCH} does not match Docker TARGETARCH=${TARGETARCH} (expected ${expected_arch})." >&2; \
+        exit 1; \
+    fi; \
+    artifacts="/vitoom-artifacts/${VITOOM_TARGET_ARCH}"; \
+    apt-get update -o Acquire::Retries=5; \
+    apt-get install -y --no-install-recommends --fix-missing \
+        -o Acquire::Retries=5 \
+        ca-certificates \
+        curl \
+        fontconfig \
+        fonts-noto-cjk \
+        gosu \
+        libgl1 \
+        libglib2.0-0 \
+        libreoffice; \
+    pandoc_deb="${artifacts}/pandoc-${PANDOC_VERSION}-1-${pandoc_arch}.deb"; \
+    require_file "$pandoc_deb"; \
+    apt-get install -y --no-install-recommends "$pandoc_deb"; \
+    groupadd --system elasticsearch; \
+    useradd --system --gid elasticsearch --home-dir /opt/elasticsearch --shell /usr/sbin/nologin elasticsearch; \
+    es_tarball="${artifacts}/elasticsearch-${ELASTICSEARCH_VERSION}-linux-${es_arch}.tar.gz"; \
+    require_file "$es_tarball"; \
+    mkdir -p /opt/elasticsearch; \
+    tar -xzf "$es_tarball" -C /opt/elasticsearch --strip-components=1; \
+    printf '%s\n' \
+        'cluster.name: vitoom' \
+        'node.name: vitoom-backend' \
+        'path.data: /app/resources/elasticsearch/data' \
+        'path.logs: /app/logs/elasticsearch' \
+        'network.host: 127.0.0.1' \
+        'http.port: 9200' \
+        'discovery.type: single-node' \
+        'xpack.security.enabled: false' \
+        'xpack.security.http.ssl.enabled: false' \
+        'xpack.security.transport.ssl.enabled: false' \
+        > /opt/elasticsearch/config/elasticsearch.yml; \
+    chown -R elasticsearch:elasticsearch /opt/elasticsearch; \
+    rm -rf /var/lib/apt/lists/*
+
+
+FROM backend-system-deps AS runtime
+ARG VITOOM_TARGET_ARCH=x86_64
+ARG VITOOM_VERSION=
+ARG PIP_INDEX_URL=
+ARG PIP_EXTRA_INDEX_URL=
+ARG PIP_TRUSTED_HOST=
+
+ENV VITOOM_VERSION=${VITOOM_VERSION}
+
+COPY requirements.txt ./
+RUN --mount=type=cache,id=vitoom-pip-cache,target=/root/.cache/pip,sharing=locked \
+    --mount=type=cache,id=vitoom-uv-cache,target=/root/.cache/uv,sharing=locked \
+    pip_args="" \
+    && uv_args="" \
+    && if [ -n "$PIP_INDEX_URL" ]; then pip_args="$pip_args --index-url $PIP_INDEX_URL"; uv_args="$uv_args --index-url $PIP_INDEX_URL"; fi \
+    && if [ -n "$PIP_EXTRA_INDEX_URL" ]; then pip_args="$pip_args --extra-index-url $PIP_EXTRA_INDEX_URL"; uv_args="$uv_args --extra-index-url $PIP_EXTRA_INDEX_URL"; fi \
+    && if [ -n "$PIP_TRUSTED_HOST" ]; then pip_args="$pip_args --trusted-host $PIP_TRUSTED_HOST"; uv_args="$uv_args --allow-insecure-host $PIP_TRUSTED_HOST"; fi \
+    && pip install $pip_args --upgrade pip uv \
+    && uv pip install --system $uv_args -r requirements.txt
+
+RUN --mount=type=bind,source=docker/backend/artifacts,target=/vitoom-artifacts,readonly \
+    set -eux; \
+    require_file() { \
+        if [ ! -s "$1" ]; then \
+            echo "Missing required build artifact: $1" >&2; \
+            echo "Run: python scripts/setup_vitoom.py" >&2; \
+            exit 1; \
+        fi; \
+    }; \
+    artifacts="/vitoom-artifacts/${VITOOM_TARGET_ARCH}"; \
+    mkdir -p /app/resources.defaults/models/multilingual-e5-small-onnx/onnx; \
+    e5_model="${artifacts}/multilingual-e5-small-onnx/onnx/model.onnx"; \
+    e5_tokenizer="${artifacts}/multilingual-e5-small-onnx/tokenizer.json"; \
+    require_file "$e5_model"; \
+    require_file "$e5_tokenizer"; \
+    cp "$e5_model" /app/resources.defaults/models/multilingual-e5-small-onnx/onnx/model.onnx; \
+    cp "$e5_tokenizer" /app/resources.defaults/models/multilingual-e5-small-onnx/tokenizer.json
+
+COPY VERSION /app/VERSION
+COPY backend/ ./backend/
+COPY config/ ./config.defaults/
+COPY config/ ./config/
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+COPY docker-entrypoint.backend.sh /usr/local/bin/vitoom-backend-entrypoint
+
+RUN chmod +x /usr/local/bin/vitoom-backend-entrypoint \
+    && mkdir -p /app/resources/data /app/resources/outputs /app/logs
+
+EXPOSE 8888
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:${VITOOM_SERVER_PORT:-8888}/api/health || exit 1
+
+ENTRYPOINT ["vitoom-backend-entrypoint"]
+CMD ["python", "-m", "backend.app.main"]

@@ -1,0 +1,33 @@
+export default {
+  title: '設定',
+  subtitle: 'プロフィールとログインパスワードを管理します。',
+  profile: {
+    title: 'プロフィール',
+    desc: '表示名を更新します。メールアドレスは変更できません。',
+    email: 'メールアドレス',
+    nickname: 'ニックネーム',
+    nicknamePlaceholder: 'ニックネームを入力',
+    saveNickname: 'ニックネームを保存',
+    saving: '保存中...',
+    updated: 'ニックネームを更新しました',
+    saveFailed: 'ニックネームの保存に失敗しました',
+  },
+  password: {
+    title: 'パスワード変更',
+    desc: '新しいパスワードは 6 文字以上で、確認入力と一致する必要があります。',
+    newPassword: '新しいパスワード',
+    confirmPassword: '新しいパスワード（確認）',
+    submit: 'パスワードを変更',
+    saving: '保存中...',
+    fillNewPassword: '新しいパスワードを入力してください',
+    minLength: 'パスワードは 6 文字以上である必要があります',
+    mismatch: 'パスワードが一致しません',
+    updated: 'パスワードを更新しました',
+    saveFailed: 'パスワードの変更に失敗しました',
+  },
+  loadProfileFailed: 'プロフィールの読み込みに失敗しました',
+  about: {
+    title: 'バージョン情報',
+    version: 'バージョン',
+  },
+}

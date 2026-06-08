@@ -1,0 +1,63 @@
+torch==2.9.1
+torchvision==0.24.1
+torchaudio==2.9.1  # must match torch version, otherwise _torchaudio.abi3.so may fail to load
+accelerate
+transformers
+vllm==0.14.0
+# vLLM 0.14.0 wheel may be linked against CUDA 12 runtime even when torch is cu130.
+# inference/audio/main.py bootstraps site-packages/nvidia/*/lib into LD_LIBRARY_PATH.
+nvidia-cuda-runtime-cu12; platform_system == "Linux"
+datasets==3.5.0  # avoid issues with torchcodec
+peft>=0.10.0  # for finetuning; pin lower bound to avoid pip backtracking to ancient 0.0.1
+llvmlite>=0.40.0
+numba>=0.57.0
+diffusers
+tqdm
+numpy
+scipy
+
+ml-collections
+absl-py
+av
+aiortc
+voxcpm==2.0.2
+websockets>=12.0
+redis
+imageio
+ftfy
+einops
+
+onnxruntime==1.24.4
+
+# Install qwen-tts itself WITHOUT deps (to avoid transformers downgrade to 4.57.3):
+#   pip install --no-deps qwen-tts==0.1.1
+# pip install -U flash-attn --no-build-isolation
+aiofiles
+# 以下两个要单独pip安装不能通过uv　pip install "flashinfer-python==0.5.3" "flashinfer-cubin==0.5.3" -f https://flashinfer.ai
+
+modelscope
+
+soundfile>=0.12.1
+librosa>=0.10.2
+qwen-tts==0.1.1
+huggingface_hub
+sentencepiece
+safetensors
+pyzmq>=27.1.0
+xxhash>=3.6.0
+aiohttp
+
+pynvml
+opencv-python
+
+simplejson
+wetext
+torchcodec
+spaces
+nano-vllm-voxcpm
+matplotlib
+inflect
+argbind
+addict
+pydantic
+httpx[socks]
