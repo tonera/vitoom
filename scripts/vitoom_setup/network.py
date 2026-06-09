@@ -19,16 +19,53 @@ def is_port_in_use(port: int, host: str = "0.0.0.0") -> bool:
     return False
 
 
-def _parse_ipv4_from_text(text: str) -> list[str]:
-    pattern = re.compile(
-        r"\b("
-        r"192\.168\.\d{1,3}\.\d{1,3}|"
-        r"10\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
-        r"172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}"
-        r")\b"
-    )
+_PRIVATE_IPV4_RE = re.compile(
+    r"\b("
+    r"192\.168\.\d{1,3}\.\d{1,3}|"
+    r"10\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
+    r"172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}"
+    r")\b"
+)
+
+
+def _extract_private_ipv4(line: str) -> str | None:
+    match = _PRIVATE_IPV4_RE.search(line)
+    if not match:
+        return None
+    ip = match.group(1)
+    if ip.endswith(".0") or ip.endswith(".255"):
+        return None
+    return ip
+
+
+def _is_gateway_line(line_lower: str) -> bool:
+    return "default gateway" in line_lower or "默认网关" in line_lower
+
+
+def _is_ipv4_address_line(line_lower: str) -> bool:
+    if _is_gateway_line(line_lower):
+        return False
+    if "ipv4" in line_lower:
+        return True
+    return "ip address" in line_lower and "ipv6" not in line_lower
+
+
+def _parse_ipv4_from_ipconfig(text: str) -> list[str]:
+    """Parse Windows ipconfig output; ignore default gateway lines."""
     found: list[str] = []
-    for match in pattern.finditer(text):
+    for line in text.splitlines():
+        line_lower = line.lower()
+        if not _is_ipv4_address_line(line_lower):
+            continue
+        ip = _extract_private_ipv4(line)
+        if ip and ip not in found:
+            found.append(ip)
+    return found
+
+
+def _parse_ipv4_from_text(text: str) -> list[str]:
+    found: list[str] = []
+    for match in _PRIVATE_IPV4_RE.finditer(text):
         ip = match.group(1)
         if ip not in found and not ip.endswith(".0") and not ip.endswith(".255"):
             found.append(ip)
@@ -62,7 +99,11 @@ def _collect_ips_from_commands() -> list[str]:
             outputs.append(_run_command_output(["ifconfig"]))
     ips: list[str] = []
     for text in outputs:
-        for ip in _parse_ipv4_from_text(text):
+        if system == "windows":
+            parsed = _parse_ipv4_from_ipconfig(text)
+        else:
+            parsed = _parse_ipv4_from_text(text)
+        for ip in parsed:
             if ip not in ips:
                 ips.append(ip)
     return ips

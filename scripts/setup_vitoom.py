@@ -336,12 +336,9 @@ def configure_env(
         if raw:
             env["VITOOM_WHEEL_BASE_URL"] = raw
 
-    if has_inference:
-        if host_ip is None:
-            host_ip = pick_host_ip(locale)
-        _merge_env(env, supervisor_env_updates(host_ip, inference))
-    else:
-        _merge_env(env, supervisor_env_updates("127.0.0.1", set()))
+    if host_ip is None:
+        host_ip = pick_host_ip(locale)
+    _merge_env(env, supervisor_env_updates(host_ip))
 
 
 def write_env_file(locale: str, env: dict[str, str]) -> None:
@@ -400,20 +397,20 @@ def maybe_ensure_docker_images(
     locale: str,
     env: dict[str, str],
     selected: set[str],
-) -> None:
+) -> set[str]:
     from vitoom_setup.build_artifacts import detect_arch
     from vitoom_setup.constants import COMPONENT_TO_IMAGE_ENV
     from vitoom_setup.docker_images import ensure_docker_images
 
     components = selected & set(COMPONENT_TO_IMAGE_ENV)
     if not components:
-        return
+        return set()
 
     _print(t("setup.prompt.ensure_docker_images", locale))
     raw = _prompt("> ").strip().lower()
     if raw in ("n", "no"):
         _print(t("setup.status.docker_images_skipped", locale))
-        return
+        return set()
 
     arch = env.get("VITOOM_TARGET_ARCH") or detect_arch(locale)
 
@@ -434,6 +431,8 @@ def maybe_ensure_docker_images(
     )
     if results:
         _print(t("setup.status.docker_images_finished", locale, count=len(results)))
+    image_env_to_component = {value: key for key, value in COMPONENT_TO_IMAGE_ENV.items()}
+    return {image_env_to_component[env_key] for env_key in results}
 
 
 def maybe_download_artifacts(
@@ -441,8 +440,10 @@ def maybe_download_artifacts(
     region: str,
     env: dict[str, str],
     selected: set[str],
+    image_ready_components: set[str] | None = None,
 ) -> None:
-    build_components = selection_to_build_components(selected)
+    image_ready_components = image_ready_components or set()
+    build_components = selection_to_build_components(selected - image_ready_components)
     if not build_components:
         _print(t("setup.status.no_artifacts_for_selection", locale))
         return
@@ -479,9 +480,9 @@ def main() -> int:
         _print(t("setup.status.admin_password_generated", locale))
     write_env_file(locale, env)
     maybe_write_local_inference_config(locale, env, selected)
-    maybe_download_artifacts(locale, region, env, selected)
+    image_ready_components = maybe_ensure_docker_images(locale, env, selected)
+    maybe_download_artifacts(locale, region, env, selected, image_ready_components)
     maybe_download_mini_model(locale, region, env, selected)
-    maybe_ensure_docker_images(locale, env, selected)
 
     _print(t("setup.done", locale))
     return 0

@@ -39,19 +39,82 @@ Vitoom 是一套本地部署的 **AIGC 应用平台**：通过浏览器访问，
 docker run --rm --gpus all nvidia/cuda:13.0.0-base-ubuntu24.04 nvidia-smi
 ```
 
+## Windows 环境准备
+
+Windows 用户请先完成下面的准备工作。准备阶段的命令都在 **PowerShell** 中执行；后续安装也建议继续使用同一个环境，不要一会儿用 PowerShell、一会儿用 WSL 终端，否则容易出现路径不一致的问题。
+
+**1. 打开 PowerShell**
+
+在开始菜单搜索并打开 **PowerShell**，先检查 WSL 是否可用：
+
+```powershell
+wsl --version
+wsl -l -v
+```
+
+重点看 `wsl -l -v` 输出中的 `VERSION` 列，正在使用的 Linux 发行版必须是 `2`。如果显示为 `1`，执行下面的命令切换到 WSL2：
+
+```powershell
+wsl --set-default-version 2
+wsl --set-version <发行版名称> 2
+```
+
+这里的 `<发行版名称>` 换成 `wsl -l -v` 里看到的名称，例如 `Ubuntu`。
+
+**2. 安装 Git**
+
+Git 用来下载 Vitoom 项目代码。没有 Git，后面的 `git clone` 命令会失败。
+
+```powershell
+winget install --id Git.Git -e --source winget
+```
+
+**3. 安装 Python 3.11**
+
+Python 用来运行 `scripts/` 下的安装向导和下载脚本。
+
+```powershell
+winget install --id Python.Python.3.11 -e --source winget
+```
+
+**4. 重新打开 PowerShell**
+
+Git 和 Python 安装完成后，关闭当前 PowerShell，重新打开一个新的 PowerShell。然后执行下面的命令确认安装成功：
+
+```powershell
+git --version
+py -3 --version
+docker compose version
+```
+
+如果以上命令都能正常输出版本号，再继续下面的“快速安装”。
+
 ## 快速安装
 
-在**仓库根目录**依次执行（交互式向导会生成 `.env`、检测 CPU 架构 `x86_64` / `aarch64`，并为推理服务写入局域网地址；**勿将 `VITOOM_BACKEND_URL` 设为 `127.0.0.1`**，否则容器内推理无法连上 Backend）：
+先获取项目代码，然后进入项目目录执行安装命令。Windows 用户建议在刚才重新打开的 **PowerShell** 中继续执行。
 
-**1. 配置环境**
+**1. 克隆项目代码**
+
+```bash
+git clone https://github.com/tonera/vitoom.git
+cd vitoom
+```
+
+**2. 配置环境**
+
+安装向导会生成 `.env`、检测 CPU 架构 `x86_64` / `aarch64`，并为推理服务写入局域网地址。配置时请注意：**不要将 `VITOOM_BACKEND_URL` 设为 `127.0.0.1`**，否则容器内推理服务无法连接 Backend。
 
 ```bash
 python scripts/setup_vitoom.py
 ```
 
-Windows 若未将 `python` 加入 PATH，可在 PowerShell 使用：`py -3 scripts/setup_vitoom.py`（其余脚本同理）。
+Windows PowerShell 中如果提示找不到 `python`，请把后续所有以 `python` 开头的命令改成 `py -3`，例如：
 
-**2. 获取镜像**
+```powershell
+py -3 scripts/setup_vitoom.py
+```
+
+**3. 获取镜像**
 
 ```bash
 python scripts/load_vitoom_images.py
@@ -63,7 +126,7 @@ python scripts/load_vitoom_images.py
 python scripts/load_vitoom_images.py --components backend,visual,text
 ```
 
-**3. 启动服务**
+**4. 启动服务**
 
 须**先启动 Backend**（会创建 Docker 网络 `vitoom-net`），再启动推理容器：
 
@@ -85,7 +148,7 @@ docker compose -f docker-compose.inference.release.yml --profile visual --profil
 
 浏览器访问：`http://<本机局域网IP>:8888`（IP 与端口以 `.env` 中 `VITOOM_BACKEND_URL` / `VITOOM_SERVER_PORT` 为准；本机调试时浏览器可用 `127.0.0.1`，但 `.env` 里仍应使用局域网 IP）。
 
-**4. 下载模型（可选，体积较大）**
+**5. 下载模型（可选，体积较大）**
 
 ```bash
 python scripts/download_initial_models.py
@@ -97,12 +160,10 @@ python scripts/download_initial_models.py
 
 ## 使用方法
 
-1. **登录**：在浏览器打开上述地址；首次部署后默认管理员为 `admin@vitoom.ai`，密码见 `.env` 中的 `DEFAULT_ADMIN_PASSWORD`（运行 `setup_vitoom.py` 时若仍为示例占位符 `admin123456`，向导会**自动生成 10 位随机密码**并写入 `.env`）。另可在宿主机执行  
-   `python scripts/create_user.py -e you@example.com -p your_password`  
-   或由管理员在 Web 端用户管理中添加用户。
+1. **登录**：在浏览器打开http://<本机局域网IP>:8888；首次部署后默认管理员为 `admin@vitoom.ai`，密码见 `.env` 中的 `DEFAULT_ADMIN_PASSWORD`。另可由管理员在 Web 端用户管理中添加用户。
 2. **智能助手**：进入 Agent 对话，用自然语言完成写作、翻译、文档转换、知识库查询、生成图片/音频/视频等（系统自动选择工具）。
 3. **专业工作台**：通过首页进入 **图像生成**、**视频生成**、**音频**（ASR/TTS）、**翻译** 等页面，使用表单提交任务。
-4. **模型管理**：在模型列表中下载、激活本地权重；需已启动 `download` 推理 profile 或完成步骤 4 的脚本下载。
+4. **模型管理**：在模型列表中下载、激活本地权重；需已启动 `download` 推理 profile 或完成步骤 5 的脚本下载。
 5. **知识库**：将文件或对话归档入库后，在 Agent 中提问即可检索已入库资料。
 6. **联网搜索（可选）**：在 `.env` 中配置 `TAVILY_API_KEY` 后，Agent 可检索公开网页信息（参见 [Tavily](https://www.tavily.com/)）。
 

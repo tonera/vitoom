@@ -38,19 +38,82 @@ Optional GPU / CUDA 13.0 runtime check (Docker installed and GPU passthrough wor
 docker run --rm --gpus all nvidia/cuda:13.0.0-base-ubuntu24.04 nvidia-smi
 ```
 
+## Windows Preparation
+
+Windows users should complete the steps below first. Run the preparation commands in **PowerShell**. For the later installation steps, keep using the same environment: do not switch back and forth between PowerShell and a WSL terminal, or paths may not match.
+
+**1. Open PowerShell**
+
+Search for **PowerShell** in the Start menu and open it. First check that WSL is available:
+
+```powershell
+wsl --version
+wsl -l -v
+```
+
+In the `wsl -l -v` output, check the `VERSION` column. The Linux distribution you use must be version `2`. If it shows `1`, switch it to WSL2:
+
+```powershell
+wsl --set-default-version 2
+wsl --set-version <distribution-name> 2
+```
+
+Replace `<distribution-name>` with the name shown by `wsl -l -v`, for example `Ubuntu`.
+
+**2. Install Git**
+
+Git is required to download the Vitoom source code. Without Git, the later `git clone` command will fail.
+
+```powershell
+winget install --id Git.Git -e --source winget
+```
+
+**3. Install Python 3.11**
+
+Python is required to run the setup wizard and download scripts under `scripts/`.
+
+```powershell
+winget install --id Python.Python.3.11 -e --source winget
+```
+
+**4. Reopen PowerShell**
+
+After installing Git and Python, close the current PowerShell window and open a new one. Then verify the installation:
+
+```powershell
+git --version
+py -3 --version
+docker compose version
+```
+
+If all commands print version information, continue with “Quick install”.
+
 ## Quick install
 
-From the **repository root**, run in order (interactive wizard writes `.env`, detects `x86_64` / `aarch64`, and sets LAN URLs for inference; **do not set `VITOOM_BACKEND_URL` to `127.0.0.1`**—inference containers cannot reach the backend on localhost):
+First download the project code, then enter the project directory and run the install commands. Windows users should continue in the newly opened **PowerShell** window.
 
-**1. Configure environment**
+**1. Clone the project code**
+
+```bash
+git clone https://github.com/tonera/vitoom.git
+cd vitoom
+```
+
+**2. Configure environment**
+
+The setup wizard writes `.env`, detects `x86_64` / `aarch64`, and sets LAN URLs for inference. During configuration, note: **do not set `VITOOM_BACKEND_URL` to `127.0.0.1`**, or inference containers cannot reach the backend.
 
 ```bash
 python scripts/setup_vitoom.py
 ```
 
-On Windows, if `python` is not on PATH, use PowerShell: `py -3 scripts/setup_vitoom.py` (same for other scripts).
+On Windows PowerShell, if `python` is not found, replace later commands that start with `python` with `py -3`, for example:
 
-**2. Load images**
+```powershell
+py -3 scripts/setup_vitoom.py
+```
+
+**3. Load images**
 
 ```bash
 python scripts/load_vitoom_images.py
@@ -62,7 +125,7 @@ Loads offline tar from `images/<arch>/` when present, otherwise pulls from Docke
 python scripts/load_vitoom_images.py --components backend,visual,text
 ```
 
-**3. Start services**
+**4. Start services**
 
 Start **backend first** (creates Docker network `vitoom-net`), then inference:
 
@@ -84,7 +147,7 @@ docker compose -f docker-compose.inference.release.yml --profile visual --profil
 
 Open in browser: `http://<LAN-IP>:8888` (see `VITOOM_BACKEND_URL` / `VITOOM_SERVER_PORT` in `.env`; you may use `127.0.0.1` in the browser locally, but `.env` should still use the LAN IP).
 
-**4. Download models (optional, large)**
+**5. Download models (optional, large)**
 
 ```bash
 python scripts/download_initial_models.py
@@ -96,12 +159,10 @@ More detail: [`docker-usage-en.md`](docker-usage-en.md) ([中文](docker-usage-c
 
 ## Usage
 
-1. **Sign in**: Open the URL above; default admin after first deploy is `admin@vitoom.ai`, password in `.env` as `DEFAULT_ADMIN_PASSWORD` (if still the example placeholder `admin123456`, the wizard **generates a random 10-character password**). Or run on the host:  
-   `python scripts/create_user.py -e you@example.com -p your_password`  
-   or add users in the Web admin UI.
+1. **Sign in**: Open `http://<LAN-IP>:8888` in a browser; the default admin after first deploy is `admin@vitoom.ai`, and the password is `DEFAULT_ADMIN_PASSWORD` in `.env`. Administrators can add more users in the Web admin UI.
 2. **Agent**: Chat in natural language for writing, translation, documents, knowledge base, image/audio/video generation (tools are chosen automatically).
 3. **Workspaces**: Home → **Image**, **Video**, **Audio** (ASR/TTS), **Translate**, etc.
-4. **Models**: Download and activate weights in the model list; needs the `download` profile or step 4 script.
+4. **Models**: Download and activate weights in the model list; needs the `download` profile or step 5 script.
 5. **Knowledge base**: Archive files or conversations, then query via Agent.
 6. **Web search (optional)**: Set `TAVILY_API_KEY` in `.env` ([Tavily](https://www.tavily.com/)).
 

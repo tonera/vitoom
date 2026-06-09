@@ -170,17 +170,13 @@ def is_valid_backend_url(value: str | None) -> bool:
     return parse_backend_url(trimmed) is not None
 
 
-def supervisor_env_updates(host: str, selected: set[str]) -> dict[str, str]:
+def supervisor_env_updates(host: str) -> dict[str, str]:
     from vitoom_setup.constants import DEPLOY_INFERENCE_IDS, SUPERVISOR_ENV_KEYS
 
-    updates: dict[str, str] = {}
-    for component in DEPLOY_INFERENCE_IDS:
-        key = SUPERVISOR_ENV_KEYS[component]
-        if component in selected:
-            updates[key] = supervisor_url(host, component)
-        else:
-            updates[key] = ""
-    return updates
+    return {
+        SUPERVISOR_ENV_KEYS[component]: supervisor_url(host, component)
+        for component in DEPLOY_INFERENCE_IDS
+    }
 
 
 def selection_to_build_components(selected: set[str]) -> set[str]:
