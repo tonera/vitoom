@@ -46,3 +46,5 @@ images
 scripts/sync_model.py
 /docs
 /wandoc
+/test
+/test_bak

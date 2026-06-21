@@ -108,18 +108,7 @@
             </div>
           </div>
 
-          <div v-if="mode === 'create'" class="space-y-1">
-            <div class="text-xs text-gray-500 [.dark_&]:text-gray-400">storage_mode=local</div>
-            <label
-              class="inline-flex cursor-pointer select-none items-center gap-2 text-sm text-gray-800 [.dark_&]:text-gray-200"
-            >
-              <input :checked="form.storage_mode === 'local'" type="checkbox" class="accent-indigo-600" @change="setStorageModeFromCheckbox" />
-              {{ t('models.form.localModel') }}
-            </label>
-          </div>
-
-          <div v-if="mode === 'create'" class="space-y-1">
-            <div class="text-xs text-gray-500 [.dark_&]:text-gray-400">capabilities.editable</div>
+          <div v-if="form.modality === 'image'" class="space-y-1 md:col-span-2">
             <label
               class="inline-flex cursor-pointer select-none items-center gap-2 text-sm text-gray-800 [.dark_&]:text-gray-200"
             >
@@ -143,16 +132,6 @@
               v-model="form.description"
               rows="3"
               class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 [.dark_&]:border-gray-700/70 [.dark_&]:bg-gray-900/40 [.dark_&]:text-gray-100"
-            />
-          </div>
-
-          <div v-if="mode === 'create'" class="space-y-1 md:col-span-2">
-            <div class="text-xs text-gray-500 [.dark_&]:text-gray-400">{{ t('models.form.runtimeConfig') }}</div>
-            <textarea
-              v-model="form.runtime_config_text"
-              rows="5"
-              placeholder="{ ... }"
-              class="w-full rounded-xl border border-gray-200 bg-gray-50 font-mono text-xs px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 [.dark_&]:border-gray-700/70 [.dark_&]:bg-gray-900/40 [.dark_&]:text-gray-100"
             />
           </div>
 
@@ -223,7 +202,6 @@ const form = ref<{
   description: string
   trigger_words: string
   editable: boolean
-  runtime_config_text: string
   thumb: string
   asset_type: string
 }>({
@@ -236,7 +214,6 @@ const form = ref<{
   description: '',
   trigger_words: '',
   editable: false,
-  runtime_config_text: '',
   thumb: '',
   asset_type: 'checkpoint',
 })
@@ -257,14 +234,12 @@ watch(
         description: '',
         trigger_words: '',
         editable: false,
-        runtime_config_text: '',
         thumb: '',
         asset_type: 'checkpoint',
       }
       return
     }
     const m = props.model
-    const cfg = (m as any)?.runtime_config ?? undefined
     form.value = {
       name: String(m?.name || ''),
       modality: String(m?.modality || ''),
@@ -275,7 +250,6 @@ watch(
       description: String(m?.description || ''),
       trigger_words: Array.isArray(m?.trigger_words) ? m.trigger_words.join(',') : '',
       editable: Boolean(m?.capabilities?.editable),
-      runtime_config_text: safeStringify(cfg, 2),
       thumb: formatModelThumbForForm(String(m?.thumb || '')),
       asset_type: String(m?.asset_type || ''),
     }
@@ -283,33 +257,16 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => form.value.modality,
+  (modality) => {
+    if (modality !== 'image') form.value.editable = false
+  }
+)
+
 function emitClose() {
   if (saving.value) return
   emit('close')
-}
-
-function setStorageModeFromCheckbox(event: Event) {
-  form.value.storage_mode = (event.target as HTMLInputElement).checked ? 'local' : 'cloud'
-}
-
-function parseJsonText(text: string): any | undefined {
-  const t = String(text || '').trim()
-  if (!t) return undefined
-  try {
-    return JSON.parse(t)
-  } catch {
-    return undefined
-  }
-}
-
-function safeStringify(v: any, spaces = 0) {
-  try {
-    if (v === undefined || v === null) return ''
-    if (typeof v === 'string') return v
-    return JSON.stringify(v, null, spaces)
-  } catch {
-    return ''
-  }
 }
 
 const thumbPreviewUrl = computed(() => resolveModelThumbUrl(String(form.value.thumb || '')))
@@ -338,8 +295,9 @@ async function submit() {
         family: String(form.value.family || '').trim() || undefined,
         description: String(form.value.description || '').trim() || undefined,
         trigger_words: String(form.value.trigger_words || '').split(',').map((x) => x.trim()).filter(Boolean),
-        capabilities: { editable: Boolean(form.value.editable) },
-        runtime_config: parseJsonText(form.value.runtime_config_text),
+        ...(String(form.value.modality || '').trim() === 'image'
+          ? { capabilities: { editable: Boolean(form.value.editable) } }
+          : {}),
         thumb: normalizedThumb,
         asset_type: String(form.value.asset_type || '').trim() || 'checkpoint',
       }
@@ -375,8 +333,12 @@ async function submit() {
       ) {
         body.trigger_words = triggerWords
       }
-      if (editable !== Boolean(orig?.capabilities?.editable)) {
-        body.capabilities = { editable }
+      if (form.value.modality === 'image') {
+        if (editable !== Boolean(orig?.capabilities?.editable)) {
+          body.capabilities = { editable }
+        }
+      } else if (Boolean(orig?.capabilities?.editable)) {
+        body.capabilities = { editable: false }
       }
 
       await updateModel(modelKey, body)
