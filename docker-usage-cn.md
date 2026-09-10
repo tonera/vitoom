@@ -391,7 +391,7 @@ docker compose -f docker-compose.inference.release.yml --profile text restart
 
 ### 13.2 将存储改为 S3
 
-Backend 任务/上传产物的落盘方式由 **`storage.default`** 决定（`server` | `s3` | `oss`）。
+Backend 任务/上传产物的落盘方式由 **`storage.default`** 决定（`server` | `s3` | `oss` | `r2`）。
 
 **1）Backend**
 
@@ -420,6 +420,22 @@ docker compose up -d backend
 **2）推理侧**
 
 还需编辑 `data/inference/config/inference.yaml` 的 `storage` 段（`default: s3` 及 `storage.s3` 密钥与 Backend 侧一致或按桶策略单独配置），并重启对应推理容器。
+
+Cloudflare R2 与 S3/OSS 平级，使用独立配置段 `storage.r2`（不要写进 `storage.s3`）：
+
+```yaml
+storage:
+  default: r2
+  r2:
+    endpoint: "https://<ACCOUNT_ID>.r2.cloudflarestorage.com"
+    region: "auto"
+    bucket: "your-bucket"
+    access_key_id: "YOUR_R2_ACCESS_KEY"
+    secret_access_key: "YOUR_R2_SECRET_KEY"
+    public_base_url: "https://your-public-domain-or-pub-xxx.r2.dev"
+```
+
+推理侧同样配置 `storage.default: r2` 与 `storage.r2`，然后重启推理容器。
 
 
 ### 13.3 更换默认文本大模型

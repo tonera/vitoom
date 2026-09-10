@@ -93,24 +93,28 @@ class ConfigValidator:
         storage = config.get_section("storage")
         
         storage_mode = storage.get("default")
-        valid_types = ["local", "s3", "oss"]
+        valid_types = ["local", "server", "s3", "oss", "r2"]
         if storage_mode and storage_mode not in valid_types:
             self.errors.append(f"storage.default must be one of {valid_types}, got: {storage_mode}")
         
-        # 验证云存储配置（如果类型不是local）
-        if storage_mode in ["s3", "oss"]:
-            if storage_mode == "s3":
-                s3_config = storage.get("s3", {})
-                required_keys = ["bucket", "region", "access_key", "secret_key"]
-                for key in required_keys:
-                    if not s3_config.get(key):
-                        self.errors.append(f"storage.s3.{key} is required when storage.default is s3")
-            elif storage_mode == "oss":
-                oss_config = storage.get("oss", {})
-                required_keys = ["bucket", "endpoint", "access_key_id", "access_key_secret"]
-                for key in required_keys:
-                    if not oss_config.get(key):
-                        self.errors.append(f"storage.oss.{key} is required when storage.default is oss")
+        if storage_mode == "s3":
+            s3_config = storage.get("s3", {})
+            required_keys = ["bucket", "access_key_id", "secret_access_key"]
+            for key in required_keys:
+                if not s3_config.get(key):
+                    self.errors.append(f"storage.s3.{key} is required when storage.default is s3")
+        elif storage_mode == "oss":
+            oss_config = storage.get("oss", {})
+            required_keys = ["bucket", "endpoint", "access_key_id", "access_key_secret"]
+            for key in required_keys:
+                if not oss_config.get(key):
+                    self.errors.append(f"storage.oss.{key} is required when storage.default is oss")
+        elif storage_mode == "r2":
+            r2_config = storage.get("r2", {})
+            required_keys = ["endpoint", "bucket", "access_key_id", "secret_access_key"]
+            for key in required_keys:
+                if not r2_config.get(key):
+                    self.errors.append(f"storage.r2.{key} is required when storage.default is r2")
     
     def _validate_security(self, config):
         """验证安全配置"""

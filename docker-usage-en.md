@@ -390,7 +390,7 @@ docker compose -f docker-compose.inference.release.yml --profile text restart
 
 ### 12.2 Switch storage to S3
 
-Where Backend tasks/uploads are stored is determined by **`storage.default`** (`server` | `s3` | `oss`).
+Where Backend tasks/uploads are stored is determined by **`storage.default`** (`server` | `s3` | `oss` | `r2`).
 
 **1) Backend**
 
@@ -419,6 +419,22 @@ docker compose up -d backend
 **2) Inference**
 
 Also edit the `storage` section in `data/inference/config/inference.yaml` (`default: s3` and `storage.s3` credentials aligned with Backend or per-bucket policy), then restart the relevant inference containers.
+
+Cloudflare R2 is a peer of S3/OSS. Use the separate `storage.r2` section (do not put R2 credentials in `storage.s3`):
+
+```yaml
+storage:
+  default: r2
+  r2:
+    endpoint: "https://<ACCOUNT_ID>.r2.cloudflarestorage.com"
+    region: "auto"
+    bucket: "your-bucket"
+    access_key_id: "YOUR_R2_ACCESS_KEY"
+    secret_access_key: "YOUR_R2_SECRET_KEY"
+    public_base_url: "https://your-public-domain-or-pub-xxx.r2.dev"
+```
+
+Set `storage.default: r2` and `storage.r2` on the inference side as well, then restart inference containers.
 
 
 ### 12.3 Change the default text LLM

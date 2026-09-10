@@ -52,7 +52,8 @@ await api_client.notify_start(
 ```
 
 ### 5. `ws_client.py` - WebSocket 客户端模块（WS 传输实现）
-连接 WS Server，发送心跳，接收消息（`task/cancel/ping`），并发送 `result/task_status`。
+连接 WS Server，发送心跳，接收消息（`task/cancel`），并发送 `result/task_status`。
+保活只发应用层 `heartbeat`（约 20s）；协议层 ping 与 JSON ping/pong 均不使用。
 
 ```python
 from common.ws_client import WebSocketClient
@@ -212,7 +213,7 @@ transport:
 无论采用 WS 还是 Redis List，核心业务消息（`task/cancel/result/task_status`）均为 JSON 格式，结构一致。
 
 差异点：
-- **WS**：支持 `ping/pong/heartbeat`，以及断线时的本地消息缓存重发
+- **WS**：推理器每 20s 发送 `heartbeat`（含 `queue_length`）作为唯一保活；断线时本地消息缓存重发
 - **Redis List**：不使用心跳帧；本项目当前不对 Redis 回传做落盘缓存（失败只记录日志）
 
 ### 消息方向说明
@@ -306,19 +307,11 @@ WebSocket Server 通知推理器取消某个任务。
 
 ---
 
-#### 1.3 心跳消息 (`type: "ping"`)
+#### 1.3 心跳（已废弃 `ping` / `pong`）
 
-WebSocket Server 发送心跳，推理器需要回复 `pong`。
+网关与推理器都不再使用 JSON `ping`/`pong`。若收到旧网关残留的 `ping`，推理器直接忽略，不回复、不断线。
 
-**消息格式**：
-```json
-{
-    "type": "ping",
-    "timestamp": "2025-01-15T10:30:00Z"
-}
-```
-
-**响应**：推理器自动回复 `pong` 消息（见下方发送消息章节）
+保活只走推理器主动发送的 `heartbeat`（见 2.3）。
 
 ---
 
@@ -498,39 +491,23 @@ WebSocket Server 发送心跳，推理器需要回复 `pong`。
 
 #### 2.3 心跳消息 (`type: "heartbeat"`)
 
-推理器主动发送心跳，保持连接活跃。
+推理器主动发送心跳，这是 WebSocket 上唯一的保活，同时上报队列长度供网关调度。
 
 **消息格式**：
 ```json
 {
     "type": "heartbeat",
+    "queue_length": 0,
     "timestamp": "2025-01-15T10:30:00Z"
 }
 ```
 
 **字段说明**：
 - `type`: 固定为 `"heartbeat"`
+- `queue_length`: 当前待处理队列长度
 - `timestamp`: 当前时间戳
 
-**发送频率**：每30秒发送一次
-
----
-
-#### 2.4 心跳响应 (`type: "pong"`)
-
-推理器响应服务器的 `ping` 消息。
-
-**消息格式**：
-```json
-{
-    "type": "pong",
-    "timestamp": "2025-01-15T10:30:00Z"
-}
-```
-
-**字段说明**：
-- `type`: 固定为 `"pong"`
-- `timestamp`: 当前时间戳
+**发送频率**：每 20 秒一次；队列长度变化时会提前补发
 
 ---
 

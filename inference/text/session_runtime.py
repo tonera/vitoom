@@ -5,8 +5,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, AsyncIterator, Awaitable, Callable, Dict, List, Optional
 
+from common.logger import get_logger
+from common.service_register import build_service_register_message
 from text.runtime.common import normalize_chat_messages
 from text.runtime.qwen_tool_parser import QwenToolCallParser
+
+logger = get_logger(__name__)
 
 
 _STREAM_STATS_KEYS = (
@@ -66,11 +70,24 @@ class TextSessionRuntime:
         sender: Callable[[Dict], Awaitable[bool]],
         stream_text: Callable[[Dict[str, Any]], AsyncIterator[Dict[str, Any]]],
         abort_request: Optional[Callable[[Dict[str, Any]], Awaitable[None]]] = None,
+        on_queue_change: Optional[Callable[[], None]] = None,
     ):
         self._sender = sender
         self._stream_text = stream_text
         self._abort_request = abort_request
+        self._on_queue_change = on_queue_change
         self._sessions: Dict[str, TextSessionState] = {}
+
+    def session_count(self) -> int:
+        return len(self._sessions)
+
+    def _notify_queue_change(self) -> None:
+        if self._on_queue_change is None:
+            return
+        try:
+            self._on_queue_change()
+        except Exception:
+            pass
 
     def _apply_session_config(self, state: TextSessionState, message: Dict[str, Any]) -> None:
         load_name = str(message.get("load_name") or state.load_name or "").strip()
@@ -178,12 +195,7 @@ class TextSessionRuntime:
         由会话侧 ``session_text_input.payload.load_name`` 决定。
         """
         return await self._sender(
-            {
-                "type": "service_register",
-                "service_type": service_type,
-                "supports_task": True,
-                "timestamp": datetime.utcnow().isoformat(),
-            }
+            build_service_register_message(service_type=service_type, supports_task=True)
         )
 
     async def handle_message(self, message: Dict) -> bool:
@@ -197,6 +209,7 @@ class TextSessionRuntime:
             self._apply_session_config(state, message)
             state.last_seq = message.get("seq")
             self._sessions[session_id] = state
+            self._notify_queue_change()
             await self._sender(
                 {
                     "type": "session_ready",
@@ -319,12 +332,13 @@ class TextSessionRuntime:
                 except Exception as e:
                     latest_state = self._sessions.get(session_id)
                     if latest_state and latest_state.generation_revision == current_revision:
+                        logger.exception("session_text_input failed session_id=%s", session_id)
                         await self._sender(
                             {
                                 "type": "session_error",
                                 "session_id": session_id,
                                 "seq": message.get("seq"),
-                                "error": str(e),
+                                "error": f"{type(e).__name__}: {e}",
                                 "timestamp": datetime.utcnow().isoformat(),
                             }
                         )
@@ -352,6 +366,7 @@ class TextSessionRuntime:
 
         if message_type == "session_close":
             state = self._sessions.pop(session_id, None)
+            self._notify_queue_change()
             if state:
                 await self._abort_active_generation(state)
             await self._sender(

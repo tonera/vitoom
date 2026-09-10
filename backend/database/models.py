@@ -272,7 +272,7 @@ class Task(Base):
     priority = Column(Integer, default=5)
     model_key = Column(String(64), ForeignKey("model_catalog.model_key"), nullable=True, index=True)
     agent_run_id = Column(String(36), ForeignKey("agent_runs.id"), nullable=True, index=True)
-    storage = Column(String(20), nullable=False)  # 任务产物存储目标：local/server/oss/s3
+    storage = Column(String(20), nullable=False)  # 任务产物存储目标：local/server/oss/s3/r2
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
@@ -890,7 +890,7 @@ class UserUpload(Base):
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     original_name = Column(String(255), nullable=True)
     storage_path = Column(Text, nullable=False)  # uploads/{YYYYMM}/uuid.ext
-    storage = Column(String(20), nullable=False, default="server")  # server | s3 | oss（Backend 侧）
+    storage = Column(String(20), nullable=False, default="server")  # server | s3 | oss | r2（Backend 侧）
     file_size = Column(BigInteger, nullable=True)
     mime_type = Column(String(100), nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)

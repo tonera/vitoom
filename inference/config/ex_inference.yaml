@@ -19,7 +19,7 @@ outputs_dir: "resources/outputs"
 #   Cached pipeline is released automatically after no tasks for this duration.
 pipeline_cache_ttl_seconds: 0
 
-# Storage (results routed by request_params.storage: local | server | s3 | oss)
+# Storage (results routed by request_params.storage: local | server | s3 | oss | r2)
 storage:
   default: "local"
 
@@ -42,6 +42,15 @@ storage:
     access_key_id: ""
     secret_access_key: ""
     public_base_url: null   # e.g. "https://{bucket}.s3.{region}.amazonaws.com"
+
+  # r2 direct upload: Cloudflare R2 (S3-compatible API, separate from storage.s3)
+  r2:
+    endpoint: ""            # e.g. "https://<ACCOUNT_ID>.r2.cloudflarestorage.com"
+    region: "auto"
+    bucket: ""
+    access_key_id: ""
+    secret_access_key: ""
+    public_base_url: null   # e.g. custom domain or "https://pub-xxx.r2.dev"
 
   # oss direct upload: AK/SK written by admin UI into this config
   oss:

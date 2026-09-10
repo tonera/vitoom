@@ -69,6 +69,7 @@ async def _amain(service_id: str) -> int:
         ws_url=startup.ws_url,
         message_queue=queue,
         service_id=startup.service_id,
+        inference_token=startup.inference_config.inference_token,
         # 后端重启后，下载器会自动重连 WS，但后端会把 services 状态重置为 stopped；
         # 因此 WS 重连成功时必须重新上报 start，避免后端认为“无可用下载服务”。
         on_reconnect=_notify_start_best_effort,

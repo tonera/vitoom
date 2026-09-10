@@ -111,17 +111,17 @@ class TextInferrer(BaseInferrer):
                 sender=self._ws_transport.send_message,
                 stream_text=self._stream_session_text,
                 abort_request=self._abort_session_request,
+                on_queue_change=self.notify_queue_change,
             )
         logger.info("Text inferrer initialized")
-
-    async def _after_ws_connected(self):
-        await super()._after_ws_connected()
-        if self._session_runtime is not None:
-            await self._session_runtime.register_service(service_type="text")
 
     async def _before_backend_registration(self):
         await super()._before_backend_registration()
         await self._maybe_run_startup_warmup()
+
+    def get_queue_length(self) -> int:
+        sessions = self._session_runtime.session_count() if self._session_runtime else 0
+        return sessions + super().get_queue_length()
 
     async def _on_session_message(self, message: Dict[str, Any]) -> bool:
         if self._session_runtime is None:
@@ -260,7 +260,7 @@ class TextInferrer(BaseInferrer):
 
             if runtime == "vllm":
                 # 首次冷加载 vLLM bundle 可能触发较长时间的 autotune / warmup。
-                # 放到线程池里执行，避免阻塞事件循环导致 WS ping/pong 超时断开。
+                # 放到线程池里执行，避免阻塞事件循环导致 WS heartbeat 发不出去、连接被对端掐掉。
                 bundle = await self.run_blocking(
                     load_vllm_text_bundle,
                     model_ref,

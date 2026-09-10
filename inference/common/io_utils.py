@@ -62,19 +62,22 @@ async def download_url_to_tempfile(
             pass
 
     timeout = aiohttp.ClientTimeout(total=timeout_seconds)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
-        async with session.get(url) as resp:
-            resp.raise_for_status()
-            total = 0
-            out_path = Path(tmp_path)
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            with out_path.open("wb") as f:
-                async for chunk in resp.content.iter_chunked(1024 * 1024):
-                    if not chunk:
-                        continue
-                    total += len(chunk)
-                    if max_bytes is not None and total > max_bytes:
-                        raise ValueError(f"Downloaded file too large (> {max_bytes} bytes): {url}")
-                    f.write(chunk)
-            logger.info(f"Downloaded: url={url} -> {out_path} ({total} bytes)")
-            return out_path
+    try:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url) as resp:
+                resp.raise_for_status()
+                total = 0
+                out_path = Path(tmp_path)
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                with out_path.open("wb") as f:
+                    async for chunk in resp.content.iter_chunked(1024 * 1024):
+                        if not chunk:
+                            continue
+                        total += len(chunk)
+                        if max_bytes is not None and total > max_bytes:
+                            raise ValueError(f"Downloaded file too large (> {max_bytes} bytes): {url}")
+                        f.write(chunk)
+                logger.info(f"Downloaded: url={url} -> {out_path} ({total} bytes)")
+                return out_path
+    except TimeoutError as exc:
+        raise TimeoutError(f"download timed out after {timeout_seconds}s: {url}") from exc

@@ -846,7 +846,7 @@ OpenAI 兼容层，直接复用平台上已接入的 `text` 类模型。主要�
 ### `/ws/inference/{service_id}`
 
 - **用途**：推理器连接，接收任务、回传状态/结果
-- **保活**：服务端定期 ping，推理器需回复 pong
+- **保活**：只认推理器应用层 `heartbeat`（约 20s）；不再发送 JSON ping，也不回复 pong
 
 ---
 

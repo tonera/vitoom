@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 from functools import lru_cache
 
+from backend.core.dotenv_loader import load_project_dotenv
+
 logger = logging.getLogger(__name__)
 
 # 配置目录路径
@@ -31,6 +33,7 @@ class ConfigManager:
     
     def _load_config(self):
         """加载配置（优先级：环境变量 > 用户配置 > 默认配置）"""
+        load_project_dotenv()
         # 1. 加载默认配置
         default_config = self._load_yaml_file(DEFAULT_CONFIG_FILE)
         if not default_config:

@@ -17,6 +17,7 @@ from .task_processor import TaskProcessor
 from .signal_handler import SignalHandler
 from .egress_fanout import FanoutEgress, EgressClient
 from .redis_list_transport import RedisListConfig, RedisListIngress, RedisListEgress
+from .service_register import build_service_register_message
 import sys
 from pathlib import Path
 
@@ -77,7 +78,7 @@ class BaseInferrer:
         # 4. 初始化消息缓存
         # 尽量使用 startup 内部的 merged inference_config（包含 service 覆盖）
         inference_config = getattr(self.config, "inference_config", None) or load_inference_config(service_id=self.service_id)
-        cache_dir = Path("resources/cache/messages").resolve()
+        cache_dir = (Path("resources/cache/messages") / self.service_id).resolve()
         self.message_cache = MessageCache(str(cache_dir))
 
         # 5. 初始化传输层（Ingress/Egress）
@@ -132,6 +133,9 @@ class BaseInferrer:
                     on_disconnect=self._on_ws_disconnect,
                     on_session_message=self._on_session_message,
                     on_cancel_message=self._on_cancel_message,
+                    inference_token=getattr(inference_config, "inference_token", None),
+                    queue_length_provider=self.get_queue_length,
+                    service_type=self._resolve_service_type(),
                 )
             return self._ws_transport
 
@@ -204,8 +208,9 @@ class BaseInferrer:
             message_queue=self.message_queue,
             message_cache=self.message_cache,
             ws_client=self.ws_client,
-            service_type=self.config.service_type,
-            inference_callback=self.inference_callback
+            service_type=self._resolve_service_type(),
+            inference_callback=self.inference_callback,
+            on_queue_change=self.notify_queue_change,
         )
         
         # 7. 注册信号处理器
@@ -214,6 +219,16 @@ class BaseInferrer:
         
         logger.info("Inferrer initialized successfully")
     
+    def get_queue_length(self) -> int:
+        depth = self.message_queue.qsize() if self.message_queue else 0
+        busy = 1 if self.task_processor and self.task_processor.get_current_task_id() else 0
+        return depth + busy
+
+    def notify_queue_change(self) -> None:
+        """队列长度变化时通知网关，避免其按过期负载调度。"""
+        if self._ws_transport is not None:
+            self._ws_transport.notify_queue_length()
+
     async def inference_callback(self, params: InferenceRequestParams) -> Any:
         """
         推理回调函数（子类需要实现）
@@ -367,7 +382,7 @@ class BaseInferrer:
             "gpu_total_memory": gpu_info.get("gpu_total_memory", 0),
             "system_load": system_info.get("system_load", 0.0),
             "memory": memory_info,
-            "service_type": self.config.service_type,
+            "service_type": self._resolve_service_type(),
             "program_name": self.service_id,
         }
         if self.config.inference_config.supervisor_url:
@@ -399,9 +414,54 @@ class BaseInferrer:
         """WS 断开时回调；子类可重写。"""
         logger.warning(f"WS disconnected for service {self.service_id}: {reason}")
 
+    def _resolve_service_type(self) -> str:
+        service_type = ""
+        if self.config is not None:
+            service_type = str(getattr(self.config, "service_type", "") or "").strip()
+        if not service_type:
+            raise RuntimeError(
+                f"service_id={self.service_id} cannot register: config is missing service_type"
+            )
+        return service_type
+
+    def _build_service_register_message(self) -> Dict[str, Any]:
+        """构建 WS ``service_register`` 帧；子类可重写以注入校验后的注册字段。"""
+        service_cfg: Dict[str, Any] = {}
+        if self.config and isinstance(getattr(self.config, "config", None), dict):
+            service_cfg = self.config.config
+        return build_service_register_message(
+            service_type=self._resolve_service_type(),
+            service_config=service_cfg,
+            queue_length=self.get_queue_length(),
+        )
+
+    async def _send_service_register(self) -> bool:
+        """WS 建连/重连后向后端注册本推理进程。"""
+        if self._ws_transport is None:
+            return False
+        message = self._build_service_register_message()
+        try:
+            ok = await self._ws_transport.send_message(message)
+            if ok:
+                logger.info(
+                    "Sent service_register: service_id=%s service_type=%s supports_task=%s",
+                    self.service_id,
+                    message.get("service_type"),
+                    message.get("supports_task"),
+                )
+            else:
+                logger.warning(
+                    "Failed to send service_register (ws not connected?): service_id=%s",
+                    self.service_id,
+                )
+            return bool(ok)
+        except Exception as e:
+            logger.warning("send service_register failed: %s", e, exc_info=True)
+            return False
+
     async def _after_ws_connected(self):
-        """WS 建连后的钩子；子类可重写。"""
-        return
+        """WS 建连后的钩子；默认发送 ``service_register``，子类可扩展。"""
+        await self._send_service_register()
 
     async def _before_backend_registration(self):
         """后端启动上报/WS 注册前的钩子；子类可重写。"""

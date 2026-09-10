@@ -9,7 +9,7 @@ from pathlib import Path
 from threading import Event
 from typing import Optional, Dict, Any, Callable
 from datetime import datetime
-from .logger import get_logger
+from .logger import get_logger, summarize_tpl_list_for_log, summarize_for_log
 from .message_queue import MessageQueue
 from .message_cache import MessageCache
 from .task_cancel import TaskCancellationRegistry, TaskCancelledError
@@ -38,7 +38,8 @@ class TaskProcessor:
         message_cache: MessageCache,
         ws_client: TaskEgress,
         service_type: str,
-        inference_callback: Callable[[InferenceRequestParams], Any]
+        inference_callback: Callable[[InferenceRequestParams], Any],
+        on_queue_change: Optional[Callable[[], None]] = None,
     ):
         """
         初始化任务处理器
@@ -49,25 +50,37 @@ class TaskProcessor:
             ws_client: WebSocket客户端（用于发送状态更新）
             service_type: 服务类型（image/video/audio/text），用于验证任务类型
             inference_callback: 推理回调函数，接收InferenceRequestParams，执行实际推理
+            on_queue_change: 队列长度变化回调（用于向网关上报负载）
         """
         self.message_queue = message_queue
         self.message_cache = message_cache
         self.ws_client = ws_client
         self.service_type = service_type
         self.inference_callback = inference_callback
+        self._on_queue_change = on_queue_change
         self._current_task_id: Optional[str] = None
         self._cancellation = TaskCancellationRegistry()
         self._running = False
         self._cache_scan_interval = 30  # 30秒扫描一次缓存目录
         self._last_cache_scan = datetime.now()
     
+    def _notify_queue_change(self):
+        if self._on_queue_change is None:
+            return
+        try:
+            self._on_queue_change()
+        except Exception as e:
+            logger.warning(f"queue change notify failed: {e}")
+
     def set_current_task_id(self, task_id: str):
         """设置当前正在处理的任务ID"""
         self._current_task_id = task_id
+        self._notify_queue_change()
     
     def clear_current_task_id(self):
         """清除当前任务ID"""
         self._current_task_id = None
+        self._notify_queue_change()
 
     def get_current_task_id(self) -> Optional[str]:
         """获取当前正在处理的任务ID"""
@@ -146,8 +159,7 @@ class TaskProcessor:
             task_id: 任务ID
             task_data: 全量任务数据字典
         """
-        logger.info(f"收到任务 {task_id} 开始处理")
-        print(task_data)
+        logger.info(f"收到任务 {task_id} 开始处理 {summarize_for_log(task_data)}")
         
         # 1. 验证task_type是否匹配
         task_type = task_data.get("type")
@@ -188,7 +200,10 @@ class TaskProcessor:
             try:
                 params = task_data.get("params") if isinstance(task_data, dict) else None
                 tpl = params.get("tpl_list") if isinstance(params, dict) else None
-                logger.info(f"[TASK_PROCESSOR_BEFORE_PARSE] task_id={task_id} tpl_list={tpl!r}")
+                logger.info(
+                    f"[TASK_PROCESSOR_BEFORE_PARSE] task_id={task_id} "
+                    f"tpl_list={summarize_tpl_list_for_log(tpl)}"
+                )
             except Exception:
                 logger.info(f"[TASK_PROCESSOR_BEFORE_PARSE] task_id={task_id} tpl_list=<unavailable>")
 

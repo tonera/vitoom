@@ -2,7 +2,7 @@
 GLM-OCR handler
 
 输入协议（来自 InferenceRequestParams）：
-    tpl_list    : List[str]       # 图片或 PDF 的 URL / 本地路径；支持多文件
+    tpl_list    : List[str]       # 图片或 PDF：http(s) URL / 本地路径 / data URI；支持多文件
     extract     : Optional[dict]
         task   : "text" | "table" | "formula" | "extract"  (默认 "text")
         schema : Optional[dict]    # task="extract" 必填
@@ -23,6 +23,7 @@ GLM-OCR handler
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import mimetypes
 import os
@@ -32,7 +33,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
-from urllib.parse import urlparse
+from urllib.parse import unquote_to_bytes, urlparse
 
 from common.pipeline_cache import PipelineCache
 from common.config_loader import InferenceConfig
@@ -184,17 +185,19 @@ class OcrHandler:
         ocr_requests: List[_OcrRunRequest] = []
         base_prompt = self._build_prompt(ocr_task, schema)
 
-        temp_dirs: List[Path] = []
+        created_temps: List[Path] = []
         try:
             for src in tpl_list:
-                local_path = await self._fetch_to_local(src)
+                local_path, is_temp = await self._fetch_to_local(src)
+                if is_temp:
+                    created_temps.append(local_path)
                 is_pdf = local_path.suffix.lower() == ".pdf"
                 ocr_requests.append(_OcrRunRequest(
                     task=ocr_task,
                     prompt=base_prompt,
                     file_path=local_path,
                     is_pdf=is_pdf,
-                    input_display=str(src),
+                    input_display=_display_src(src),
                     use_doc_zip=use_doc_zip_for_text,
                 ))
 
@@ -248,14 +251,9 @@ class OcrHandler:
             finally:
                 await self.bundle_cache.release_use(key=cache_key)
         finally:
-            for d in temp_dirs:
+            for p in created_temps:
                 try:
-                    for p in d.glob("*"):
-                        try:
-                            p.unlink()
-                        except Exception:
-                            pass
-                    d.rmdir()
+                    p.unlink(missing_ok=True)
                 except Exception:
                     pass
 
@@ -617,15 +615,22 @@ class OcrHandler:
     # Input fetching (URL / path → local file)
     # -----------------------------------------------------------------------
 
-    async def _fetch_to_local(self, src: str) -> Path:
-        """把 URL 或路径归一化为本地真实文件（保留扩展名）。"""
+    async def _fetch_to_local(self, src: str) -> Tuple[Path, bool]:
+        """把 URL / data URI / 路径归一化为本地真实文件。
+
+        返回 (path, is_temp)。is_temp=True 表示本函数创建了临时文件，调用方负责清理。
+        """
         if not isinstance(src, str) or not src.strip():
             raise ValueError("OCR tpl_list item must be a non-empty string")
 
         s = src.strip()
         parsed = urlparse(s)
+        if parsed.scheme == "data" or s.startswith("data:"):
+            path = await self.run_blocking(_decode_data_uri_to_tempfile, s)
+            return path, True
         if parsed.scheme in ("http", "https"):
-            return await self.run_blocking(_download_to_tempfile, s)
+            path = await self.run_blocking(_download_to_tempfile, s)
+            return path, True
 
         # 本地路径（绝对 / 相对）
         p = Path(s).expanduser()
@@ -636,7 +641,7 @@ class OcrHandler:
                 p = candidate.resolve()
         if not p.exists():
             raise FileNotFoundError(f"OCR input not found: {src}")
-        return p.resolve()
+        return p.resolve(), False
 
     # -----------------------------------------------------------------------
     # Cloning params for each per-file result message
@@ -657,6 +662,92 @@ class OcrHandler:
 # ---------------------------------------------------------------------------
 # Module-level helpers (blocking, safe to run_blocking)
 # ---------------------------------------------------------------------------
+
+
+def _display_src(src: str, max_len: int = 60) -> str:
+    s = str(src)
+    if s.startswith("data:"):
+        if len(s) <= max_len:
+            return s
+        return f"{s[:max_len]}…({len(s)} chars)"
+    if len(s) <= max_len:
+        return s
+    return f"{s[:48]}…({len(s)} chars)"
+
+
+_DATA_URI_MIME_EXT = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/bmp": ".bmp",
+    "image/gif": ".gif",
+    "image/tif": ".tif",
+    "image/tiff": ".tif",
+    "application/pdf": ".pdf",
+}
+
+
+def _sniff_ext_from_bytes(data: bytes) -> str:
+    if data[:5] == b"%PDF-":
+        return ".pdf"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return ".png"
+    if data[:3] == b"\xff\xd8\xff":
+        return ".jpg"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return ".webp"
+    if data[:2] == b"BM":
+        return ".bmp"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return ".gif"
+    return ""
+
+
+def _decode_data_uri_to_tempfile(src: str) -> Path:
+    """Decode a data URI (image or PDF) into a tempfile with the right suffix."""
+    try:
+        header, payload = src.split(",", 1)
+    except ValueError as exc:
+        raise ValueError("OCR data URI must look like data:<mime>;base64,<payload>") from exc
+    if not header.lower().startswith("data:"):
+        raise ValueError("OCR data URI must start with data:")
+
+    meta = header[5:]
+    parts = [p.strip() for p in meta.split(";") if p.strip()]
+    mime = ""
+    is_b64 = False
+    for part in parts:
+        if part.lower() == "base64":
+            is_b64 = True
+        elif "/" in part and not mime:
+            mime = part.lower()
+
+    raw_payload = "".join(payload.split())
+    if not raw_payload:
+        raise ValueError("OCR data URI payload is empty")
+    try:
+        blob = base64.b64decode(raw_payload, validate=True) if is_b64 else unquote_to_bytes(payload)
+    except Exception as exc:
+        raise ValueError("OCR data URI payload is not valid base64") from exc
+    if not blob:
+        raise ValueError("OCR data URI decoded to empty bytes")
+
+    ext = _sniff_ext_from_bytes(blob) or _DATA_URI_MIME_EXT.get(mime) or ".bin"
+    if ext not in {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff", ".gif", ".bin"}:
+        ext = ".bin"
+
+    fd, tmp_path = tempfile.mkstemp(prefix="mini_ocr_", suffix=ext)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(blob)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+        raise
+    return Path(tmp_path)
 
 
 def _download_to_tempfile(url: str) -> Path:

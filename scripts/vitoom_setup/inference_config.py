@@ -43,6 +43,13 @@ storage:
     access_key_id: ""
     secret_access_key: ""
     public_base_url: null
+  r2:
+    endpoint: ""
+    region: "auto"
+    bucket: ""
+    access_key_id: ""
+    secret_access_key: ""
+    public_base_url: null
   oss:
     endpoint: ""
     bucket: ""

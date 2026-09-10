@@ -17,7 +17,7 @@ class InferenceRequestParams(BaseModel):
     # ========== 1. 消息参数 ==========
     type: str = Field(..., description="任务大类:image/video/audio/text/translate/mini/upload")
     job_type: str = Field(..., description="任务执行分类:MK,RBG...")
-    storage: Literal["local", "oss", "s3", "server"] = Field(
+    storage: Literal["local", "oss", "s3", "r2", "server"] = Field(
         default="local", 
         description="存储方式"
     )
@@ -652,7 +652,7 @@ class InferenceResponseParams:
         self.progress = message.get('progress', 100)
         
         # 任务产物存储目标
-        self.storage = message.get('storage', 'local')  # local oss s3 server
+        self.storage = message.get('storage', 'local')  # local oss s3 r2 server
         
         # 推理参数（用于记录和展示）
         self.seed = message.get('seed')

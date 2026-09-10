@@ -33,10 +33,8 @@ nvidia-ml-py>=13.0.0
 # Gemma 4 / Qwen3 文本模型
 # `vllm` 不放在本 requirements 里统一安装：
 # 请先按部署环境执行类似：
-#   uv pip install -U vllm --pre \
-#     --extra-index-url https://wheels.vllm.ai/nightly/cu129 \
-#     --extra-index-url https://download.pytorch.org/whl/cu129 \
-#     --index-strategy unsafe-best-match
+#   python -m pip install -U vllm==0.21.0 \
+#   --extra-index-url https://download.pytorch.org/whl/cu130
 # 然后再安装本文件其余依赖。
 transformers==5.8.0
 accelerate>=0.24.0

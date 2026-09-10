@@ -53,10 +53,10 @@ huggingface-hub
 #   pip install vllm --extra-index-url https://download.pytorch.org/whl/cu124
 #
 # CUDA 13.0（本项目默认；nightly 渠道，带 glm_ocr 支持）：
-#   uv pip install -U vllm --pre \
-#     --extra-index-url https://wheels.vllm.ai/nightly/cu130 \
-#     --extra-index-url https://download.pytorch.org/whl/cu130 \
-#     --index-strategy unsafe-best-match
+# uv pip install -U vllm --pre \
+# --extra-index-url https://wheels.vllm.ai/nightly/cu130 \
+# --extra-index-url https://download.pytorch.org/whl/cu130 \
+# --index-strategy unsafe-best-match
 #
 # 升级 torch 或重装 torch 后，务必 `pip uninstall -y vllm` 再按上面重新安装。
 # =============================================================================

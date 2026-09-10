@@ -2,8 +2,8 @@
 生成产物 / 用户上传的 storage 规范化与访问 URL 解析。
 
 约定：
-- 推理侧可使用 local | server | s3 | oss；local 不提供访问 URL。
-- Backend 写入侧将 local 视为 server；访问 URL 仅对 server | s3 | oss 生成。
+- 推理侧可使用 local | server | s3 | oss | r2；local 不提供访问 URL。
+- Backend 写入侧将 local 视为 server；访问 URL 仅对 server | s3 | oss | r2 生成。
 """
 
 from __future__ import annotations
@@ -15,11 +15,11 @@ from fastapi import Request
 from backend.core.config import get_config
 from backend.utils.url_utils import normalize_outputs_path, to_absolute_outputs_url
 
-ArtifactStorage = Literal["local", "server", "s3", "oss"]
-BackendWritableStorage = Literal["server", "s3", "oss"]
+ArtifactStorage = Literal["local", "server", "s3", "oss", "r2"]
+BackendWritableStorage = Literal["server", "s3", "oss", "r2"]
 
-_VALID_INFERENCE = frozenset({"local", "server", "s3", "oss"})
-_VALID_BACKEND_WRITE = frozenset({"server", "s3", "oss"})
+_VALID_INFERENCE = frozenset({"local", "server", "s3", "oss", "r2"})
+_VALID_BACKEND_WRITE = frozenset({"server", "s3", "oss", "r2"})
 
 
 def normalize_storage_for_write(storage: Optional[str]) -> BackendWritableStorage:
@@ -66,14 +66,8 @@ def resolve_artifact_public_url(
             return f"{public}{path}"
         return path
 
-    if st == "s3":
-        base = get_config("storage.s3.public_base_url", None)
-        if base:
-            return f"{str(base).strip().rstrip('/')}/{rel}"
-        return None
-
-    if st == "oss":
-        base = get_config("storage.oss.public_base_url", None)
+    if st in ("s3", "oss", "r2"):
+        base = get_config(f"storage.{st}.public_base_url", None)
         if base:
             return f"{str(base).strip().rstrip('/')}/{rel}"
         return None

@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from typing import Any, Dict, Optional
 
 from common.base_inferrer import BaseInferrer
+from common.service_register import build_service_register_message
 from common.config_loader import load_inference_config
 from common.logger import get_logger, print_info
 from common.pipeline_cache import PipelineCache
@@ -433,19 +434,19 @@ class AudioInferrer(BaseInferrer):
             return
         await self._release_bundle(bundle)
 
+    def _build_service_register_message(self) -> Dict[str, Any]:
+        return build_service_register_message(
+            service_type=self._resolve_service_type(),
+            supports_task=True,
+            supported_models=self._supported_models,
+            capabilities=self._capabilities,
+            fixed_model=self._fixed_model,
+            fixed_family=self._fixed_family,
+            queue_length=self.get_queue_length(),
+        )
+
     async def _on_ws_disconnect(self, reason: str):
         await super()._on_ws_disconnect(reason)
-
-    async def _after_ws_connected(self):
-        await super()._after_ws_connected()
-        if self._session_runtime is not None:
-            await self._session_runtime.register_service(
-                service_type="audio",
-                supported_models=self._supported_models,
-                capabilities=self._capabilities,
-                fixed_model=self._fixed_model,
-                fixed_family=self._fixed_family,
-            )
 
     async def _on_session_message(self, message: Dict[str, Any]) -> bool:
         if self._session_runtime is None:

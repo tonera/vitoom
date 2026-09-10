@@ -14,7 +14,7 @@ Mini 服务是系统里的**第五类**推理服务，和 image/video/text/audio
 
 - **模型**：`zai-org/GLM-OCR`（0.9B encoder-decoder VLM）
 - **Runtime**：vLLM（同步 LLM 引擎；OCR 没有流式需求）
-- **输入**：图片 / PDF（PDF 在 handler 里用 PyMuPDF 逐页渲染后喂给模型）
+- **输入**：图片 / PDF。`tpl_list` 支持 http(s) URL、本地路径、以及 `data:<mime>;base64,...`（`image/*` 或 `application/pdf`）。PDF 在 handler 里用 PyMuPDF 逐页渲染后喂给模型。
 - **四种任务模式**（通过 `extract.task` 切换）：
   - `text` — **图文混排 Markdown**（默认）。先用 `doclayout-yolo` 做版面切分，再对文本/表格/公式块分别用 GLM-OCR 识别，插图原图裁剪保留；最终打包为单个 zip 返回
   - `table` — 表格识别（HTML/Markdown 风格）
@@ -52,7 +52,7 @@ POST /v1/tasks
   "task_type":  "mini",
   "job_type":   "OCR",
   "model_name": "GLM-OCR",
-  "tpl_list":   ["https://.../invoice.pdf", "resources/uploads/note.jpg"],
+  "tpl_list":   ["https://.../invoice.pdf", "resources/uploads/note.jpg", "data:image/jpeg;base64,..."],
   "extract": {
     "task": "text"
   }

@@ -792,7 +792,7 @@ class WebSocketManager:
         if not task_dict:
             logger.error(f"Task not found: {task_id}")
             return False
-        # 使用任务创建时写入的 storage（local | server | s3 | oss），由推理 ResultHandler 分流落盘。
+        # 使用任务创建时写入的 storage（local | server | s3 | oss | r2），由推理 ResultHandler 分流落盘。
         raw_storage = str(task_dict.get("storage") or "").strip().lower()
         if not raw_storage:
             from backend.core.config import get_config

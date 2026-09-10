@@ -6,6 +6,7 @@ import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException
 from typing import Optional
 
+from backend.websocket.inference_auth import reject_unauthorized_inference_ws
 from backend.websocket.manager import WebSocketManager, get_websocket_manager
 from backend.auth import get_optional_user_id
 from backend.core.logger import get_app_logger
@@ -196,7 +197,8 @@ async def websocket_model_download(
 @router.websocket("/ws/inference/{service_id}")
 async def websocket_inference_service(
     websocket: WebSocket,
-    service_id: str
+    service_id: str,
+    token: Optional[str] = None,
 ):
     """
     WebSocket端点：推理器连接
@@ -206,15 +208,22 @@ async def websocket_inference_service(
     推理器在启动时连接此端点，用于接收任务和发送推理结果
     
     保活机制：
-    - 服务端每30秒发送一次ping消息
-    - 推理器应回复pong消息
-    - 推理器也可以主动发送heartbeat消息
-    - 如果60秒内没有收到任何消息，连接将被关闭
+    - 只认推理器主动发送的应用层 heartbeat（约 20s，可带 queue_length）
+    - 不再发送 JSON ping，也不回复 pong
+    - 若长时间收不到任何消息（含 heartbeat），连接将被关闭
     """
     import asyncio
-    from datetime import datetime, timedelta
+    from datetime import datetime
     
     manager = get_websocket_manager()
+
+    if reject_unauthorized_inference_ws(
+        service_id=service_id,
+        query_token=token,
+        headers=websocket.headers,
+    ):
+        await websocket.close(code=1008, reason="Unauthorized")
+        return
     
     # 验证服务是否存在（在accept之前检查）
     from backend.database import InferenceService
@@ -227,30 +236,17 @@ async def websocket_inference_service(
     # 建立推理器连接（这里会调用websocket.accept()）
     await manager.connect_inference_service(websocket, service_id)
     
-    # 保活配置
-    PING_INTERVAL = 30  # 每30秒发送一次ping
+    # 保活：只认推理器 heartbeat；不再发 JSON ping / 回 pong
+    HEARTBEAT_CHECK_INTERVAL = 30
     TIMEOUT = 300  # 5 分钟无消息才断开（长 OCR/推理任务期间推理器可能较久不回包）
     last_message_time = datetime.utcnow()
-    ping_task = None
+    watchdog_task = None
 
-    async def _safe_send_json(payload: dict) -> bool:
-        try:
-            await websocket.send_json(payload)
-            return True
-        except RuntimeError:
-            return False
-        except Exception as e:
-            logger.debug("Failed to send ws message to inference service %s: %s", service_id, e)
-            return False
-    
-    async def send_ping():
-        """定期发送ping消息"""
-        nonlocal last_message_time
+    async def watch_timeout():
+        """超时看门狗：不发 ping，只在长时间无入站消息时断开。"""
         while True:
             try:
-                await asyncio.sleep(PING_INTERVAL)
-                
-                # 检查是否超时
+                await asyncio.sleep(HEARTBEAT_CHECK_INTERVAL)
                 time_since_last_message = (datetime.utcnow() - last_message_time).total_seconds()
                 if time_since_last_message > TIMEOUT:
                     logger.warning(
@@ -258,38 +254,23 @@ async def websocket_inference_service(
                         f"({time_since_last_message:.1f}s > {TIMEOUT}s), closing connection"
                     )
                     try:
-                        await websocket.close(code=1000, reason="Timeout: no response")
-                    except:
+                        await websocket.close(code=1000, reason="Timeout: no heartbeat")
+                    except Exception:
                         pass
                     break
-                
-                # 发送ping消息
-                try:
-                    ping_message = {
-                        "type": "ping",
-                        "timestamp": datetime.utcnow().isoformat()
-                    }
-                    if not await _safe_send_json(ping_message):
-                        break
-                    logger.info(f"Sent ping to inference service {service_id}")  # 改为info级别以便调试
-                except Exception as e:
-                    logger.error(f"Error sending ping to inference service {service_id}: {e}")
-                    break
-                
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error in ping task for inference service {service_id}: {e}")
+                logger.error(f"Error in timeout watchdog for inference service {service_id}: {e}")
                 break
     
     try:
-        # 启动ping任务
-        ping_task = asyncio.create_task(send_ping())
+        watchdog_task = asyncio.create_task(watch_timeout())
         
         # 保持连接，接收和转发消息
         while True:
             try:
-                # 接收推理器消息（不设置超时，由ping任务处理超时）
+                # 接收推理器消息（不设置超时，由看门狗处理超时）
                 raw_in = await websocket.receive()
                 if raw_in.get("type") == "websocket.disconnect":
                     break
@@ -323,28 +304,15 @@ async def websocket_inference_service(
                         message["binary_bytes"] = blob
 
                     # 处理不同类型的消息
-                    if message_type == "pong":
-                        # 心跳响应
-                        logger.debug(f"Received pong from inference service {service_id}")
-                        # 更新最后消息时间（pong也算作活跃消息）
-                        last_message_time = datetime.utcnow()
+                    if message_type in {"ping", "pong"}:
+                        # 旧协议残留，忽略；保活只靠 heartbeat
                         continue
                     elif message_type == "heartbeat":
-                        # 主动心跳
                         logger.debug(f"Received heartbeat from inference service {service_id}")
                         try:
                             get_inference_service_manager().sync_service_heartbeat(service_id)
                         except Exception as e:
                             logger.warning(f"Failed to sync heartbeat for inference service {service_id}: {e}")
-                        # 更新最后消息时间
-                        last_message_time = datetime.utcnow()
-                        # 回复pong
-                        pong_message = {
-                            "type": "pong",
-                            "timestamp": datetime.utcnow().isoformat()
-                        }
-                        if not await _safe_send_json(pong_message):
-                            break
                         continue
                     elif message_type == "service_register":
                         try:
@@ -770,11 +738,10 @@ async def websocket_inference_service(
     except Exception as e:
         logger.error(f"WebSocket error: {e}", exc_info=True)
     finally:
-        # 取消ping任务
-        if ping_task and not ping_task.done():
-            ping_task.cancel()
+        if watchdog_task and not watchdog_task.done():
+            watchdog_task.cancel()
             try:
-                await ping_task
+                await watchdog_task
             except asyncio.CancelledError:
                 pass
         

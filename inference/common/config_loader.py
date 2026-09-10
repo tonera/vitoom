@@ -7,6 +7,7 @@ import yaml
 from pathlib import Path
 from typing import Dict, Any, Optional
 from .logger import get_logger
+from .inference_token import load_project_dotenv
 
 logger = get_logger(__name__)
 
@@ -144,7 +145,7 @@ class InferenceConfig:
             self.pipeline_cache_ttl_seconds = 0
 
         # ========== 存储相关配置 ==========
-        # storage 值域固定：local | server | s3 | oss
+        # storage 值域固定：local | server | s3 | oss | r2
         storage_cfg: Dict[str, Any] = config_dict.get("storage", {}) if isinstance(config_dict.get("storage", {}), dict) else {}
         self.storage_default: str = storage_cfg.get("default", "local")
 
@@ -176,6 +177,15 @@ class InferenceConfig:
         self.s3_secret_access_key: str = s3_cfg.get("secret_access_key", "")
         self.s3_public_base_url: Optional[str] = s3_cfg.get("public_base_url")
 
+        # r2 直传配置（Cloudflare R2，S3 兼容 API，独立于 storage.s3）
+        r2_cfg: Dict[str, Any] = storage_cfg.get("r2", {}) if isinstance(storage_cfg.get("r2", {}), dict) else {}
+        self.r2_endpoint: Optional[str] = r2_cfg.get("endpoint")
+        self.r2_region: Optional[str] = r2_cfg.get("region") or "auto"
+        self.r2_bucket: str = r2_cfg.get("bucket", "")
+        self.r2_access_key_id: str = r2_cfg.get("access_key_id", "")
+        self.r2_secret_access_key: str = r2_cfg.get("secret_access_key", "")
+        self.r2_public_base_url: Optional[str] = r2_cfg.get("public_base_url")
+
         # oss 直传配置（AK/SK 从配置读取）
         oss_cfg: Dict[str, Any] = storage_cfg.get("oss", {}) if isinstance(storage_cfg.get("oss", {}), dict) else {}
         self.oss_endpoint: str = oss_cfg.get("endpoint", "")
@@ -189,6 +199,11 @@ class InferenceConfig:
         
         # WebSocket Server配置
         self.ws_url: str = config_dict.get("ws_url", "ws://127.0.0.1:8888")
+
+        # 推理 WS 鉴权 token（VITOOM_INFERENCE_TOKEN 优先于 yaml）
+        token_from_env = str(os.environ.get("VITOOM_INFERENCE_TOKEN") or "").strip()
+        token_from_cfg = str(config_dict.get("inference_token") or "").strip()
+        self.inference_token: str = token_from_env or token_from_cfg
 
         # Backend 访问本推理容器 Supervisor Agent 的地址。
         # 多机部署时必须是 Backend 可达的地址，而不是浏览器地址或推理侧连接 Backend 的地址。
@@ -282,6 +297,8 @@ def load_inference_config(service_id: Optional[str] = None) -> InferenceConfig:
 
     sid = _infer_service_id(service_id)
     cache_key = sid or "__global__"
+
+    load_project_dotenv()
 
     # 使用缓存，避免重复加载
     cached = _inference_config_cache.get(cache_key)

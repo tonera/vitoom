@@ -2,7 +2,7 @@
 存储后端抽象与实现
 
 目标：
-- 按 request_params.storage 将推理产物上传到 local / server / s3 / oss
+- 按 request_params.storage 将推理产物上传到 local / server / s3 / oss / r2
 - 上层永远只使用 key（相对路径）做业务处理，不直接依赖 URL 或绝对路径
 """
 
@@ -22,7 +22,7 @@ from .logger import get_logger
 
 logger = get_logger(__name__)
 
-StorageTarget = Literal["local", "server", "s3", "oss"]
+StorageTarget = Literal["local", "server", "s3", "oss", "r2"]
 
 
 class StorageBackendError(RuntimeError):
@@ -144,6 +144,7 @@ class ServerBackend(StorageBackend):
 
 class S3Backend(StorageBackend):
     storage: StorageTarget = "s3"
+    _r2_compat = False
 
     def __init__(
         self,
@@ -165,14 +166,31 @@ class S3Backend(StorageBackend):
         try:
             import boto3  # type: ignore
         except Exception as e:
-            raise StorageBackendError("boto3 not installed, cannot use s3 storage") from e
+            raise StorageBackendError(f"boto3 not installed, cannot use {self.storage} storage") from e
 
         session = boto3.session.Session(
             aws_access_key_id=self.access_key_id,
             aws_secret_access_key=self.secret_access_key,
             region_name=self.region,
         )
-        self._client = session.client("s3", endpoint_url=self.endpoint)
+        client_kwargs: Dict[str, Any] = {"endpoint_url": self.endpoint}
+        if self._r2_compat:
+            from botocore.config import Config  # type: ignore
+
+            checksum_kwargs = {
+                "signature_version": "s3v4",
+                "s3": {"addressing_style": "path"},
+                "request_checksum_calculation": "when_required",
+                "response_checksum_validation": "when_required",
+            }
+            try:
+                client_kwargs["config"] = Config(**checksum_kwargs)
+            except TypeError:
+                client_kwargs["config"] = Config(
+                    signature_version="s3v4",
+                    s3={"addressing_style": "path"},
+                )
+        self._client = session.client("s3", **client_kwargs)
 
     async def put_file(
         self,
@@ -196,11 +214,40 @@ class S3Backend(StorageBackend):
                 ExtraArgs=extra,
             )
         except Exception as e:
-            raise StorageBackendError(f"S3 upload failed: bucket={self.bucket}, key={key}, err={e}") from e
+            raise StorageBackendError(f"{self.storage} upload failed: bucket={self.bucket}, key={key}, err={e}") from e
 
         size = local_path.stat().st_size
         public_url = f"{self.public_base_url}/{key}" if self.public_base_url else None
         return PutResult(key=key, size=size, content_type=content_type, public_url=public_url)
+
+
+class R2Backend(S3Backend):
+    """Cloudflare R2：S3 兼容协议，独立配置段 storage.r2。"""
+
+    storage: StorageTarget = "r2"
+    _r2_compat = True
+
+    def __init__(
+        self,
+        *,
+        bucket: str,
+        access_key_id: str,
+        secret_access_key: str,
+        region: Optional[str] = None,
+        endpoint: Optional[str] = None,
+        public_base_url: Optional[str] = None,
+    ):
+        endpoint = str(endpoint or "").strip() or None
+        super().__init__(
+            bucket=bucket,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            region=region or "auto",
+            endpoint=endpoint,
+            public_base_url=public_base_url,
+        )
+        if not self.endpoint or not self.bucket:
+            raise StorageBackendError("storage.r2.endpoint and storage.r2.bucket are required")
 
 
 class OSSBackend(StorageBackend):
@@ -282,6 +329,16 @@ def build_storage_backend(
             region=getattr(inference_config, "s3_region", None),
             endpoint=getattr(inference_config, "s3_endpoint", None),
             public_base_url=getattr(inference_config, "s3_public_base_url", None),
+        )
+
+    if storage == "r2":
+        return R2Backend(
+            bucket=getattr(inference_config, "r2_bucket", ""),
+            access_key_id=getattr(inference_config, "r2_access_key_id", ""),
+            secret_access_key=getattr(inference_config, "r2_secret_access_key", ""),
+            region=getattr(inference_config, "r2_region", None) or "auto",
+            endpoint=getattr(inference_config, "r2_endpoint", None),
+            public_base_url=getattr(inference_config, "r2_public_base_url", None),
         )
 
     if storage == "oss":

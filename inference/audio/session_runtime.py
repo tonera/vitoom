@@ -33,6 +33,7 @@ import numpy as np
 from audio.engines.tts_engine import AudioChunk, TtsEngine, VoiceConfig
 from audio.runtime.audio_wav_utils import audio_tensor_to_pcm16_bytes
 from common.logger import get_logger
+from common.service_register import build_service_register_message
 
 logger = get_logger(__name__)
 
@@ -141,18 +142,14 @@ class AudioSessionRuntime:
         fixed_family: str | None = None,
     ) -> bool:
         return await self._sender(
-            {
-                "type": "service_register",
-                "service_type": service_type,
-                "supports_task": True,
-                "supported_models": [str(item).strip() for item in supported_models if str(item).strip()],
-                "capabilities": [
-                    str(item).strip().lower() for item in capabilities if str(item).strip()
-                ],
-                "fixed_model": str(fixed_model or "").strip(),
-                "fixed_family": str(fixed_family or "").strip(),
-                "timestamp": _utc_iso(),
-            }
+            build_service_register_message(
+                service_type=service_type,
+                supports_task=True,
+                supported_models=supported_models,
+                capabilities=capabilities,
+                fixed_model=fixed_model,
+                fixed_family=fixed_family,
+            )
         )
 
     # ------------------------------------------------------------------

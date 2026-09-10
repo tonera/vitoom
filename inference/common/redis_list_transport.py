@@ -20,7 +20,7 @@ import redis.asyncio as redis
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import TimeoutError as RedisTimeoutError
 
-from .logger import get_logger
+from .logger import get_logger, summarize_tpl_list_for_log
 from .message_queue import MessageQueue
 
 logger = get_logger(__name__)
@@ -312,17 +312,23 @@ class RedisListIngress:
                     continue
 
                 # 直接输出 Redis 收到的原始消息（用于定位 tpl_list 在链路中何处丢失）
+                # data URI 可能数 MB，禁止把 payload 打进日志。
                 try:
                     raw_s = raw_str if isinstance(raw_str, str) else str(raw_str)
-                    max_len = 8000
-                    if len(raw_s) <= max_len:
-                        logger.info(f"[RAW_REDIS_INGRESS] {raw_s}")
-                    else:
-                        head = 4000
-                        tail = 3500
+                    if "data:" in raw_s[:4096]:
                         logger.info(
-                            f"[RAW_REDIS_INGRESS] {raw_s[:head]}...[truncated {len(raw_s) - head - tail} chars]...{raw_s[-tail:]}"
+                            f"[RAW_REDIS_INGRESS] omitted data URI payload, {len(raw_s)} chars"
                         )
+                    else:
+                        max_len = 8000
+                        if len(raw_s) <= max_len:
+                            logger.info(f"[RAW_REDIS_INGRESS] {raw_s}")
+                        else:
+                            head = 4000
+                            tail = 3500
+                            logger.info(
+                                f"[RAW_REDIS_INGRESS] {raw_s[:head]}...[truncated {len(raw_s) - head - tail} chars]...{raw_s[-tail:]}"
+                            )
                 except Exception:
                     logger.info("[RAW_REDIS_INGRESS] <unavailable>")
                 try:
@@ -340,7 +346,10 @@ class RedisListIngress:
                     task_data0 = raw.get("task_data") if isinstance(raw.get("task_data"), dict) else raw
                     params0 = task_data0.get("params") if isinstance(task_data0, dict) else None
                     tpl0 = params0.get("tpl_list") if isinstance(params0, dict) else None
-                    logger.info(f"[REDIS_RAW_PARAMS] task_id={raw_task_id} tpl_list={tpl0!r}")
+                    logger.info(
+                        f"[REDIS_RAW_PARAMS] task_id={raw_task_id} "
+                        f"tpl_list={summarize_tpl_list_for_log(tpl0)}"
+                    )
                 except Exception:
                     logger.info("[REDIS_RAW_PARAMS] tpl_list=<unavailable>")
 
@@ -355,7 +364,10 @@ class RedisListIngress:
                         task_data = msg.get("task_data") if isinstance(msg.get("task_data"), dict) else None
                         params2 = task_data.get("params") if isinstance(task_data, dict) else None
                         tpl2 = params2.get("tpl_list") if isinstance(params2, dict) else None
-                        logger.info(f"[REDIS_NORMALIZED_TASK_DATA] task_id={msg.get('task_id')} tpl_list={tpl2!r}")
+                        logger.info(
+                            f"[REDIS_NORMALIZED_TASK_DATA] task_id={msg.get('task_id')} "
+                            f"tpl_list={summarize_tpl_list_for_log(tpl2)}"
+                        )
                 except Exception:
                     logger.info("[REDIS_NORMALIZED_TASK_DATA] tpl_list=<unavailable>")
 

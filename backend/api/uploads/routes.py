@@ -599,7 +599,7 @@ async def upload_file(
     file: UploadFile = FastFile(..., description="Multipart file field name: file"),
     storage: Optional[str] = Query(
         None,
-        description="Storage target: server | s3 | oss (local is treated as server on backend)",
+        description="Storage target: server | s3 | oss | r2 (local is treated as server on backend)",
     ),
     user_id: str = Depends(get_current_user_id_or_api_key),
 ):

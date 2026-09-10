@@ -21,7 +21,7 @@ def create_storage_adapter(storage_mode: str) -> StorageAdapter:
     根据存储类型创建存储适配器。
 
     Args:
-        storage_mode: server | s3 | oss（local 会自动转为 server）
+        storage_mode: server | s3 | oss | r2（local 会自动转为 server）
 
     Returns:
         存储适配器实例
@@ -37,6 +37,11 @@ def create_storage_adapter(storage_mode: str) -> StorageAdapter:
         from .object_storage import S3StorageAdapter
 
         return S3StorageAdapter()
+
+    if mode == "r2":
+        from .object_storage import R2StorageAdapter
+
+        return R2StorageAdapter()
 
     if mode == "oss":
         from .object_storage import OSSStorageAdapter

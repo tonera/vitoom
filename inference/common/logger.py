@@ -128,6 +128,36 @@ def get_logger(
     
     return logger
 
+
+def summarize_tpl_list_for_log(tpl, *, data_uri_chars: int = 60) -> str:
+    """Log-safe snapshot of tpl_list. Data URIs keep only the first N characters."""
+    if tpl is None:
+        return "None"
+    if isinstance(tpl, (list, tuple)):
+        return repr([_summarize_tpl_item(item, data_uri_chars) for item in tpl])
+    return repr(_summarize_tpl_item(tpl, data_uri_chars))
+
+
+def summarize_for_log(value, *, data_uri_chars: int = 60):
+    """Deep-copy a task payload for logging, truncating data URI strings."""
+    if isinstance(value, str):
+        return _summarize_tpl_item(value, data_uri_chars)
+    if isinstance(value, list):
+        return [summarize_for_log(item, data_uri_chars=data_uri_chars) for item in value]
+    if isinstance(value, tuple):
+        return tuple(summarize_for_log(item, data_uri_chars=data_uri_chars) for item in value)
+    if isinstance(value, dict):
+        return {k: summarize_for_log(v, data_uri_chars=data_uri_chars) for k, v in value.items()}
+    return value
+
+
+def _summarize_tpl_item(item, data_uri_chars: int):
+    if not isinstance(item, str):
+        return item
+    if item.startswith("data:") and len(item) > data_uri_chars:
+        return f"{item[:data_uri_chars]}…({len(item)} chars)"
+    return item
+
 # 打印变量,调试利器
 def print_info(data, prefix=""):
     logger = get_logger(__name__)

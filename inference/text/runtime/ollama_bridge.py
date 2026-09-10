@@ -878,6 +878,30 @@ def _frame_to_png_bytes(frame: Any) -> bytes:
     return buffer.getvalue()
 
 
+def _normalize_image_bytes_to_png(blob: bytes) -> bytes:
+    """Decode HTTP/file image bytes with Pillow and re-encode as PNG.
+
+    Ollama's native loader claims WebP support but rejects some VP8 WebP
+    payloads (``Failed to load image or audio file``). vLLM goes through
+    ``qwen_vl_utils`` / PIL instead; do the same here before ``client.chat``.
+    """
+    if blob.startswith(b"\x89PNG\r\n\x1a\n"):
+        return blob
+    try:
+        from PIL import Image
+    except Exception as exc:
+        raise RuntimeError(
+            "Ollama image inputs require Pillow to normalize images to PNG."
+        ) from exc
+    image = Image.open(io.BytesIO(blob))
+    image.load()
+    if image.mode not in {"RGB", "RGBA"}:
+        image = image.convert("RGBA" if "A" in image.mode or "transparency" in image.info else "RGB")
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
 def _extract_video_frames_with_cv2(
     video_path: Path,
     *,
@@ -1097,7 +1121,7 @@ async def _to_ollama_messages(
                         max_bytes=50 * 1024 * 1024,
                     )
                     try:
-                        images.append(image_bytes)
+                        images.append(await asyncio.to_thread(_normalize_image_bytes_to_png, image_bytes))
                     finally:
                         _cleanup_temp_path(temp_path, keep=False)
                     continue

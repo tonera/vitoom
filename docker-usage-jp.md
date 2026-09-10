@@ -387,7 +387,7 @@ docker compose -f docker-compose.inference.release.yml --profile text restart
 
 ### 12.2 ストレージを S3 に変更
 
-Backend のタスク／アップロード先は **`storage.default`**（`server` | `s3` | `oss`）で決まります。
+Backend のタスク／アップロード先は **`storage.default`**（`server` | `s3` | `oss` | `r2`）で決まります。
 
 **1) Backend**
 
@@ -416,6 +416,22 @@ docker compose up -d backend
 **2) 推論**
 
 `data/inference/config/inference.yaml` の `storage` も編集（`default: s3` と `storage.s3` を Backend と整合またはバケットポリシーに合わせる）し、該当推論コンテナを再起動。
+
+Cloudflare R2 は S3/OSS と同列です。独立した `storage.r2` を使い、`storage.s3` には書かないでください：
+
+```yaml
+storage:
+  default: r2
+  r2:
+    endpoint: "https://<ACCOUNT_ID>.r2.cloudflarestorage.com"
+    region: "auto"
+    bucket: "your-bucket"
+    access_key_id: "YOUR_R2_ACCESS_KEY"
+    secret_access_key: "YOUR_R2_SECRET_KEY"
+    public_base_url: "https://your-public-domain-or-pub-xxx.r2.dev"
+```
+
+推論側も `storage.default: r2` と `storage.r2` を揃え、推論コンテナを再起動します。
 
 ### 12.3 デフォルトテキスト LLM の変更
 

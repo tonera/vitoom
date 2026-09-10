@@ -49,6 +49,9 @@ models:
 
 # Inference service
 inference:
+  # WebSocket token for /ws/inference/{service_id}; empty disables verification.
+  # Set via VITOOM_INFERENCE_TOKEN in .env (backend + inference containers).
+  token: ""
   # Signing for inferencer direct upload (/api/inference/upload), optional
   # - empty: no verification (legacy compatible)
   # - non-empty: inferencer must send X-Vitoom-Upload-Timestamp / X-Vitoom-Upload-Signature
@@ -71,7 +74,7 @@ tasks:
 
 # Storage
 storage:
-  default: "server"  # Task/upload artifact storage (config only; API ignores storage field); inferencer also has local
+  default: "server"  # Task/upload artifact storage (config only; API ignores storage field); inferencer also has local | r2
   local:
     base_path: "resources/outputs"
     # Output URL prefix:
@@ -85,6 +88,14 @@ storage:
     access_key_id: ""
     secret_access_key: ""
     public_base_url: null   # e.g. "https://{bucket}.s3.{region}.amazonaws.com"
+
+  r2:
+    endpoint: ""            # e.g. "https://<ACCOUNT_ID>.r2.cloudflarestorage.com"
+    region: "auto"
+    bucket: ""
+    access_key_id: ""
+    secret_access_key: ""
+    public_base_url: null   # e.g. custom domain or "https://pub-xxx.r2.dev"
 
   oss:
     endpoint: ""            # e.g. "https://oss-cn-hangzhou.aliyuncs.com"

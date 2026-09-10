@@ -1,5 +1,5 @@
 """
-S3 / OSS 对象存储适配器（Backend 写入与删除）。
+S3 / R2 / OSS 对象存储适配器（Backend 写入与删除）。
 上传仅需 endpoint/bucket/密钥；访问 URL 由 artifact_storage.resolve_artifact_public_url 生成。
 """
 
@@ -20,7 +20,7 @@ logger = get_app_logger(__name__)
 
 
 class _ObjectStorageAdapterBase(StorageAdapter):
-    """S3/OSS 适配器公共逻辑（按 key 存取）。"""
+    """S3/R2/OSS 适配器公共逻辑（按 key 存取）。"""
 
     storage_name: str = "s3"
 
@@ -89,28 +89,75 @@ def _guess_content_type(filename: str) -> str:
     return mime or "application/octet-stream"
 
 
+def _create_boto3_s3_client(
+    *,
+    access_key_id: str,
+    secret_access_key: str,
+    region: Optional[str],
+    endpoint: Optional[str],
+    r2_compat: bool = False,
+    storage_name: str = "s3",
+):
+    try:
+        import boto3  # type: ignore
+    except ImportError as e:
+        raise RuntimeError(f"boto3 not installed, cannot use {storage_name} storage") from e
+
+    session = boto3.session.Session(
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=secret_access_key,
+        region_name=region,
+    )
+    client_kwargs: Dict[str, Any] = {"endpoint_url": endpoint}
+    if r2_compat:
+        from botocore.config import Config  # type: ignore
+
+        checksum_kwargs = {
+            "signature_version": "s3v4",
+            "s3": {"addressing_style": "path"},
+            "request_checksum_calculation": "when_required",
+            "response_checksum_validation": "when_required",
+        }
+        try:
+            client_kwargs["config"] = Config(**checksum_kwargs)
+        except TypeError:
+            client_kwargs["config"] = Config(
+                signature_version="s3v4",
+                s3={"addressing_style": "path"},
+            )
+    return session.client("s3", **client_kwargs)
+
+
 class S3StorageAdapter(_ObjectStorageAdapterBase):
     storage_name = "s3"
+    _config_key = "s3"
+    _r2_compat = False
+    _require_endpoint = False
+    _default_region: Optional[str] = None
 
     def __init__(self) -> None:
-        self.bucket = str(get_config("storage.s3.bucket", "") or "").strip()
-        self.access_key_id = str(get_config("storage.s3.access_key_id", "") or "")
-        self.secret_access_key = str(get_config("storage.s3.secret_access_key", "") or "")
-        self.region = get_config("storage.s3.region", None)
-        self.endpoint = get_config("storage.s3.endpoint", None)
+        key = self._config_key
+        self.bucket = str(get_config(f"storage.{key}.bucket", "") or "").strip()
+        self.access_key_id = str(get_config(f"storage.{key}.access_key_id", "") or "")
+        self.secret_access_key = str(get_config(f"storage.{key}.secret_access_key", "") or "")
+        region = get_config(f"storage.{key}.region", None)
+        region_str = str(region).strip() if region else ""
+        self.region = region_str or self._default_region
+        endpoint = get_config(f"storage.{key}.endpoint", None)
+        self.endpoint = str(endpoint).strip() if endpoint else None
         if not self.bucket:
-            raise ValueError("storage.s3.bucket is required for S3 storage")
-        try:
-            import boto3  # type: ignore
-        except ImportError as e:
-            raise RuntimeError("boto3 not installed, cannot use s3 storage") from e
-        session = boto3.session.Session(
-            aws_access_key_id=self.access_key_id,
-            aws_secret_access_key=self.secret_access_key,
-            region_name=self.region,
+            raise ValueError(f"storage.{key}.bucket is required for {self.storage_name} storage")
+        if self._require_endpoint and not self.endpoint:
+            raise ValueError(f"storage.{key}.endpoint is required for {self.storage_name} storage")
+        self._client = _create_boto3_s3_client(
+            access_key_id=self.access_key_id,
+            secret_access_key=self.secret_access_key,
+            region=self.region,
+            endpoint=self.endpoint,
+            r2_compat=self._r2_compat,
+            storage_name=self.storage_name,
         )
-        self._client = session.client("s3", endpoint_url=self.endpoint)
-        logger.info("S3StorageAdapter initialized: bucket=%s", self.bucket)
+        logger.info("%s initialized: bucket=%s", type(self).__name__, self.bucket)
 
     async def put_bytes(self, key: str, file_data: bytes, content_type: str) -> None:
         extra: Dict[str, Any] = {"ContentType": content_type}
@@ -133,7 +180,7 @@ class S3StorageAdapter(_ObjectStorageAdapterBase):
             await asyncio.to_thread(_delete)
             return True
         except Exception as e:
-            logger.warning("S3 delete failed: key=%s err=%s", key, e)
+            logger.warning("%s delete failed: key=%s err=%s", self.storage_name, key, e)
             return False
 
     async def object_exists(self, key: str) -> bool:
@@ -159,6 +206,16 @@ class S3StorageAdapter(_ObjectStorageAdapterBase):
             return resp["Body"].read()
 
         return await asyncio.to_thread(_get)
+
+
+class R2StorageAdapter(S3StorageAdapter):
+    """Cloudflare R2：S3 兼容协议，独立配置段 storage.r2。"""
+
+    storage_name = "r2"
+    _config_key = "r2"
+    _r2_compat = True
+    _require_endpoint = True
+    _default_region = "auto"
 
 
 class OSSStorageAdapter(_ObjectStorageAdapterBase):
