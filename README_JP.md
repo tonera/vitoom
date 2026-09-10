@@ -16,7 +16,7 @@ Vitoom は **ローカル導入型の AIGC アプリケーションプラット�
 | 画像・動画 | テキストから画像（主要 OSS モデル対応）、画像編集；画像の理解・質問応答；テキスト／画像から動画 |
 | ドキュメント・OCR | Web / PDF / Office リンクの要約・変換；スキャン OCR（表・数式）；表の Excel 出力 |
 | 翻訳 | 長文の多言語翻訳；画像内テキストの翻訳 |
-| Web 検索 | 任意のリアルタイム検索（Tavily API Key が必要） |
+| Web 検索 | 内蔵の自己ホスト型 SearXNG によるリアルタイム検索（APIキー不要） |
 
 ## 動作環境
 
@@ -164,7 +164,7 @@ python scripts/download_initial_models.py
 3. **ワークスペース**：ホームから **画像生成**・**動画生成**・**音声**（ASR/TTS）・**翻訳** など。
 4. **モデル管理**：一覧からダウンロード・有効化；`download` profile または手順 5 のスクリプトが必要。
 5. **ナレッジベース**：ファイルや会話をアーカイブ後、Agent で検索。
-6. **Web 検索（任意）**：`.env` に `TAVILY_API_KEY` を設定（[Tavily](https://www.tavily.com/)）。
+6. **Web 検索**：内蔵の `searxng` サービスにより標準で有効（`docker-compose.yml` 参照）。サードパーティの API キーは不要。初回起動前に `.env` に `SEARXNG_SECRET_KEY` を設定すること（例：`openssl rand -hex 32`）。
 
 推論の初回起動は重み読み込みのため時間がかかることがあります。ログ：
 

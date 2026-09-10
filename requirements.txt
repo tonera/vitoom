@@ -50,7 +50,6 @@ diffusers>=0.21.0
 # Agent 编排依赖（CrewAI 需 Python >= 3.10）
 crewai==1.9.3; python_version >= "3.10"
 crewai-tools==1.9.3; python_version >= "3.10"
-tavily-python>=0.7.23
 pyarrow==23.0.1
 pillow>=10.0.0
 safetensors>=0.4.0  # 用于模型权重文件读取

@@ -16,7 +16,7 @@ Vitoom 是一套本地部署的 **AIGC 应用平台**：通过浏览器访问，
 | 图像与视频 | 文生图（支持主流开源模型）、图生图编辑；图片理解问答；文生视频 / 图生视频 |
 | 文档与 OCR | 网页 / PDF / Office 链接总结与转换；扫描件 OCR（含表格、公式）；表格导出 Excel |
 | 翻译 | 长文本多语言翻译；支持图片内文字翻译 |
-| 智能检索 | 可选联网搜索（需配置 Tavily API Key） |
+| 智能检索 | 内置自托管 SearXNG 联网搜索，无需第三方 API Key |
 
 
 ## 环境要求
@@ -165,7 +165,7 @@ python scripts/download_initial_models.py
 3. **专业工作台**：通过首页进入 **图像生成**、**视频生成**、**音频**（ASR/TTS）、**翻译** 等页面，使用表单提交任务。
 4. **模型管理**：在模型列表中下载、激活本地权重；需已启动 `download` 推理 profile 或完成步骤 5 的脚本下载。
 5. **知识库**：将文件或对话归档入库后，在 Agent 中提问即可检索已入库资料。
-6. **联网搜索（可选）**：在 `.env` 中配置 `TAVILY_API_KEY` 后，Agent 可检索公开网页信息（参见 [Tavily](https://www.tavily.com/)）。
+6. **联网搜索**：由内置的 `searxng` 服务提供（见 `docker-compose.yml`），无需第三方 API Key。首次启动前需在 `.env` 中设置 `SEARXNG_SECRET_KEY`（例如用 `openssl rand -hex 32` 生成）。
 
 推理服务首次启动可能较慢（加载权重）。查看日志：
 

@@ -484,8 +484,8 @@ agents:
 图片模型：SDXL、Qwen-Image、Z-Image、Flux、Flux.2等所有主流图片生成模型
 语言模型：Qwen系列
 
-### 13.6 启用实时联网搜索
-在　https://www.tavily.com/　申请一个api key（额度内免费），然后修改.env中的TAVILY_API_KEY
+### 13.6 实时联网搜索
+由内置的 searxng 服务开箱即用提供（见 docker-compose.yml 中的 searxng 服务），无需任何第三方 API key。首次启动前需在 .env 中设置 SEARXNG_SECRET_KEY（例如用 `openssl rand -hex 32` 生成）；该服务仅在 vitoom-net Docker 网络内可达，不对外暴露。
 
 ### 13.7 缓存模型以加速推理
 新增或修改data/inference/config/{image/video/text/qwen_asr/qwen_tts}.yaml，将pipeline_cache_ttl_seconds修改为大于0的值，可以让对应推理服务缓存模型，从而大大加速下一次推理。（注意：缓存这些模型将会占用显存而不会释放，直到超时才会释放显存。）

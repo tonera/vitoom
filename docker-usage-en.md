@@ -485,9 +485,9 @@ Audio: Qwen-tts, Qwen-asr, VoxCPM
 Image: SDXL, Qwen-Image, Z-Image, Flux, Flux.2, and other mainstream image models  
 Language: Qwen series
 
-### 12.6 Enable live web search
+### 12.6 Live web search
 
-Apply for an API key at https://www.tavily.com/ (free within quota), then set `TAVILY_API_KEY` in `.env`.
+Enabled out of the box via the bundled `searxng` service (see the `searxng` entry in `docker-compose.yml`) - no third-party API key needed. Before first start, set `SEARXNG_SECRET_KEY` in `.env` (e.g. `openssl rand -hex 32`); the service is internal-only and not reachable outside the `vitoom-net` Docker network.
 
 ### 12.7 Cache models to speed up inference
 

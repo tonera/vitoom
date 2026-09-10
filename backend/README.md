@@ -583,7 +583,7 @@ Agent 模板 + 一次性 Run 的调试接口。正式的多轮对话请使用下
         "sequence": 2,
         "event_type": "tool_selected",
         "payload": {
-          "declared": ["tavily_search", "travel_planner"],
+          "declared": ["local_search", "travel_planner"],
           "selected": ["travel_planner"],
           "pool": "global",
           "preferred": [],

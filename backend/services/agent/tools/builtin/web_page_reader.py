@@ -18,7 +18,7 @@ WEB_PAGE_READER_TOOL_NAME = "web_page_reader"
 
 WEB_PAGE_READER_DESCRIPTION = (
     "读取用户给出的普通网页 URL 内容，适合『总结这个网页/这篇文章讲什么/这个页面主要内容是什么』"
-    "这类需要打开单个网页并理解正文的请求。不要用于搜索互联网多个结果；搜索类问题使用 tavily_search。"
+    "这类需要打开单个网页并理解正文的请求。不要用于搜索互联网多个结果；搜索类问题使用 local_search。"
     "不要用于图片、视频、PDF 或 Office 文档；这些应交给对应媒体/文档工具。"
 )
 

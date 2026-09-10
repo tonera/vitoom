@@ -27,11 +27,28 @@ tools:
     provider: "local"
     enabled: true
 
-  - name: "tavily_search"
-    description: "使用 Tavily 联网搜索公开网页内容，适合旅行规划、旅游建议、公开事实补充、新闻和实时网页检索。用户询问旅游目的地、行程、景点、美食、攻略、天气交通、新闻等公开网页内容时优先使用。"
-    tags: ["web", "search", "travel", "research", "联网", "旅游", "旅行", "攻略", "景点"]
-    aliases: ["internet search", "web search", "online search", "旅行规划", "旅游攻略", "北京旅游", "景点查询", "ウェブ検索", "ネット検索"]
-    examples: ["search the web for latest news", "搜索最新新闻", "我想去北京旅游", "帮我规划北京三日游", "北京有哪些值得去的景点", "你懂旅游信息吗", "最新情報を検索して", "在网上找找","从网上搜索"]
+  - name: "local_search"
+    description: "使用本地自托管的 SearXNG 联网搜索公开网页内容，无需任何第三方付费 API Key。适合旅行规划、旅游建议、新闻和实时网页检索，也适合模型自身知识库之外或拿不准的公开事实、人物、影视、历史、科普、百科类问题——凡是需要核实事实、查证具体人名/年份/数据，或用户明确要求『上网查/搜一下/别瞎编』时都应优先使用，不要仅凭记忆编造答案。用户询问旅游目的地、行程、景点、美食、攻略、天气交通、新闻，或询问具体的人物/角色/事件/日期等公开事实时优先使用。"
+    tags: ["web", "search", "travel", "research", "trivia", "fact-check", "local", "联网", "旅游", "旅行", "攻略", "景点", "事实核查", "百科", "查证", "本地搜索"]
+    aliases: ["internet search", "web search", "online search", "local search", "fact check", "look it up", "look up online", "google it", "旅行规划", "旅游攻略", "北京旅游", "景点查询", "查一下", "谷歌一下", "百度一下", "网上搜一下", "上网查一下", "ウェブ検索", "ネット検索"]
+    examples:
+      - "search the web for latest news"
+      - "搜索最新新闻"
+      - "我想去北京旅游"
+      - "帮我规划北京三日游"
+      - "北京有哪些值得去的景点"
+      - "你懂旅游信息吗"
+      - "最新情報を検索して"
+      - "在网上找找"
+      - "从网上搜索"
+      - "who played spock in star trek"
+      - "谁演了星际迷航里的史波克"
+      - "苹果公司是哪一年成立的"
+      - "what year was the eiffel tower built"
+      - "别瞎编，上网查一下再回答我"
+      - "如果不确定就上网搜一下，别编造"
+      - "这个说法对不对，帮我查证一下"
+      - "わからなければネットで調べて"
     negative_examples:
       - "查询员工资料"
       - "查一下这个员工"
@@ -39,11 +56,16 @@ tools:
       - "北京办公室有多少员工"
       - "员工组织关系"
       - "给我某个员工的简历"
+      - "查一下知识库里的报销流程"
+      - "根据项目文档解释一下系统架构"
+      - "总结一下这个网页 https://example.com/article"
     intent_anchors:
       - "联网搜索网页信息"
       - "旅行规划和旅游攻略"
       - "查询目的地景点美食交通等公开信息"
       - "明显具有时效性的信息查询"
+      - "核实模型自身不确定或本地知识库之外的公开事实/人物/历史/科普问题"
+      - "用户明确要求上网查证，不要凭记忆编造"
     input_modalities: ["text"]
     provider: "local"
     enabled: true
@@ -80,7 +102,7 @@ tools:
     enabled: true
 
   - name: "web_page_reader"
-    description: "读取用户给出的单个普通网页 URL 正文，适合『总结这个网页』『这篇文章讲什么』『这个页面主要内容是什么』『帮我看一下这个链接内容』这类需要打开网页并基于页面内容回答的问题。不要用于联网搜索多个结果、旅游攻略或新闻检索；这些使用 tavily_search。不要用于图片/视频 URL、PDF、Office 文档或文件转换；图片视频使用 analyze_media，文档使用文档工具。"
+    description: "读取用户给出的单个普通网页 URL 正文，适合『总结这个网页』『这篇文章讲什么』『这个页面主要内容是什么』『帮我看一下这个链接内容』这类需要打开网页并基于页面内容回答的问题。不要用于联网搜索多个结果、旅游攻略或新闻检索；这些使用 local_search。不要用于图片/视频 URL、PDF、Office 文档或文件转换；图片视频使用 analyze_media，文档使用文档工具。"
     tags: ["web", "webpage", "url", "reader", "网页", "链接", "网页读取", "网页总结", "文章总结"]
     aliases: ["read web page", "scrape website", "summarize webpage", "网页内容", "读取网页", "总结网页", "链接内容", "ページ要約"]
     examples:

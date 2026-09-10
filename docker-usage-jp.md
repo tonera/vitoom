@@ -479,9 +479,9 @@ agents:
 画像：SDXL、Qwen-Image、Z-Image、Flux、Flux.2 など主要 OSS 画像モデル  
 言語：Qwen 系
 
-### 12.6 リアルタイム Web 検索の有効化
+### 12.6 リアルタイム Web 検索
 
-https://www.tavily.com/ で API キー取得（枠内無料あり）、`.env` に `TAVILY_API_KEY` を設定。
+内蔵の `searxng` サービスにより標準で有効（`docker-compose.yml` の `searxng` エントリ参照）。サードパーティの API キーは不要。初回起動前に `.env` に `SEARXNG_SECRET_KEY` を設定すること（例：`openssl rand -hex 32`）。このサービスは `vitoom-net` Docker ネットワーク内でのみ到達可能で、外部には公開されない。
 
 ### 12.7 推論加速のためのモデルキャッシュ
 

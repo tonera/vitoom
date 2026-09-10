@@ -27,7 +27,7 @@ TOOL_PROVIDERS: tuple = get_args(ToolProviderName)
 def _normalize_provider(raw_value: Any, *, source: str) -> ToolProviderName:
     """把任意输入归一为合法 ``ToolProviderName``；非法值直接抛错，不做静默降级。
 
-    ``source`` 用于报错信息定位（例如 ``tool=tavily_search (yaml)``）。
+    ``source`` 用于报错信息定位（例如 ``tool=local_search (yaml)``）。
     历史上此处会 silently 回退成 ``"local"``，这会让 YAML 拼错的 ``providr:``
     退化成本地工具并在运行期才炸——这里改为启动期即失败。
     """

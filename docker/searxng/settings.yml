@@ -1,0 +1,28 @@
+# Local, internal-only SearXNG instance used by vitoom's agent tools as a
+# free/self-hosted web-search provider (see backend/services/agent/tools/builtin/local_search.py).
+# Not exposed to the host or the public internet - only reachable from other
+# containers on the vitoom-net docker network.
+#
+# The secret_key placeholder below is substituted at container start (see
+# the `command` override for the searxng service in docker-compose.yml) from
+# the SEARXNG_SECRET_KEY value in the deployment .env - never commit a real
+# secret into this file.
+#
+# Read the full option reference before changing this:
+# https://docs.searxng.org/admin/settings/
+
+use_default_settings: true
+
+server:
+  secret_key: "__SEARXNG_SECRET_KEY__"
+  # This instance is only ever called machine-to-machine (JSON API) from
+  # inside the docker network, never rendered to an end user's browser.
+  image_proxy: false
+
+search:
+  safe_search: 0
+  # JSON output is disabled by default (public-instance anti-scraping
+  # default); vitoom's local_search tool needs it to get structured results.
+  formats:
+    - html
+    - json

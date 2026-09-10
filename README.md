@@ -16,7 +16,7 @@ Vitoom is a **locally deployable AIGC application platform**. Access it through 
 | Image & video | Text-to-image (mainstream open models), image editing; image Q&A; text-to-video / image-to-video |
 | Documents & OCR | Summarize and convert web / PDF / Office links; scan OCR (tables, formulas); export tables to Excel |
 | Translation | Long-form multilingual translation; text-in-image translation |
-| Web search | Optional live web search (requires a Tavily API key) |
+| Web search | Live web search via a bundled, self-hosted SearXNG instance (no API key required) |
 
 ## Requirements
 
@@ -164,7 +164,7 @@ More detail: [`docker-usage-en.md`](docker-usage-en.md) ([中文](docker-usage-c
 3. **Workspaces**: Home → **Image**, **Video**, **Audio** (ASR/TTS), **Translate**, etc.
 4. **Models**: Download and activate weights in the model list; needs the `download` profile or step 5 script.
 5. **Knowledge base**: Archive files or conversations, then query via Agent.
-6. **Web search (optional)**: Set `TAVILY_API_KEY` in `.env` ([Tavily](https://www.tavily.com/)).
+6. **Web search**: Provided out of the box by the bundled `searxng` service (see `docker-compose.yml`) - no third-party API key needed. Set `SEARXNG_SECRET_KEY` in `.env` before first start (e.g. `openssl rand -hex 32`).
 
 First inference startup can be slow (loading weights). Logs:
 

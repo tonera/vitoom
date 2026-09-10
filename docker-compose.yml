@@ -28,7 +28,6 @@ services:
       ELASTICSEARCH_JAVA_OPTS: ${ELASTICSEARCH_JAVA_OPTS:--Xms512m -Xmx512m}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DATABASE_URL: ${DATABASE_URL:-}
-      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       KNOWLEDGE_BASE_ES_URL: ${KNOWLEDGE_BASE_ES_URL:-http://127.0.0.1:9200}
       KNOWLEDGE_BASE_ES_USERNAME: ${KNOWLEDGE_BASE_ES_USERNAME:-}
       KNOWLEDGE_BASE_ES_PASSWORD: ${KNOWLEDGE_BASE_ES_PASSWORD:-}
@@ -38,6 +37,7 @@ services:
       OPENCLAW_TOKEN: ${OPENCLAW_TOKEN:-}
       VITOOM_SUPERVISOR_URL: ${VITOOM_SUPERVISOR_URL:-}
       VITOOM_SUPERVISOR_AGENT_PORT: ${VITOOM_SUPERVISOR_AGENT_PORT:-9001}
+      LOCAL_SEARCH_BASE_URL: ${LOCAL_SEARCH_BASE_URL:-http://searxng:8080}
     ports:
       - "${VITOOM_SERVER_PORT:-8888}:${VITOOM_SERVER_PORT:-8888}"
     volumes:
@@ -55,6 +55,36 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+    networks:
+      - vitoom-net
+
+  searxng:
+    # Local, internal-only metasearch engine giving agent tools a
+    # self-hosted web-search option that needs no paid API key (see
+    # backend/services/agent/tools/builtin/local_search.py and
+    # https://github.com/tonera/vitoom/issues/3). Not published to the host;
+    # only vitoom-net containers can reach it.
+    image: searxng/searxng:latest
+    container_name: vitoom-searxng
+    restart: unless-stopped
+    environment:
+      SEARXNG_SECRET_KEY: ${SEARXNG_SECRET_KEY:?Set SEARXNG_SECRET_KEY in .env, e.g. openssl rand -hex 32}
+    volumes:
+      - ./docker/searxng/settings.yml:/etc/searxng/settings.template.yml:ro
+      - ./data/searxng:/etc/searxng
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        sed "s/__SEARXNG_SECRET_KEY__/$$SEARXNG_SECRET_KEY/" /etc/searxng/settings.template.yml > /etc/searxng/settings.yml
+        exec /usr/local/searxng/entrypoint.sh
+    healthcheck:
+      # searxng/searxng's image has no curl; wget (busybox) is available.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     networks:
       - vitoom-net
 

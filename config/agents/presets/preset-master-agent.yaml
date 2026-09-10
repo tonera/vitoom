@@ -26,6 +26,7 @@ config:
         preferred:
           - analyze_media
           - audio_drama_tts
+          - local_search
       verbose: true
       memory: false
       allow_delegation: false
