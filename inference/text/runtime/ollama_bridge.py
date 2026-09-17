@@ -54,7 +54,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 from common.io_utils import download_url_to_tempfile
 from common.logger import get_logger
 from text.runtime.common import count_multimodal_parts
-from text.runtime.ollama_messages import fold_tool_roles_for_ollama
+from text.runtime.ollama_messages import normalize_assistant_tool_calls
 from text.runtime.runtime_resolver import TextRuntimePolicy
 
 logger = get_logger(__name__)
@@ -1053,36 +1053,9 @@ def _build_video_frame_note(video_index: int, frame_count: int) -> str:
     )
 
 
-def _serialize_assistant_tool_calls_to_text(tool_calls: Any) -> str:
-    """把 assistant.tool_calls 回写成 Qwen 风格 ``<tool_call>...</tool_call>`` 文本。
-
-    Ollama 对 ``messages`` 里的历史 tool_calls 支持不够一致，一些 GGUF 模板直接对
-    messages 渲染文本。保守起见把它 inline 进 content 末尾，等价于模型自己吐过的
-    格式，对 Qwen/Hermes-Pro 模板都友好。
-    """
-    if not isinstance(tool_calls, list) or not tool_calls:
-        return ""
-    blocks: List[str] = []
-    for call in tool_calls:
-        if not isinstance(call, dict):
-            continue
-        function = call.get("function") if isinstance(call.get("function"), dict) else {}
-        name = str(function.get("name") or "").strip()
-        if not name:
-            continue
-        args_raw = function.get("arguments")
-        if isinstance(args_raw, str):
-            try:
-                args_value: Any = json.loads(args_raw) if args_raw.strip() else {}
-            except Exception:
-                args_value = {"_raw": args_raw}
-        elif isinstance(args_raw, (dict, list)):
-            args_value = args_raw
-        else:
-            args_value = {}
-        payload = json.dumps({"name": name, "arguments": args_value}, ensure_ascii=False)
-        blocks.append(f"<tool_call>\n{payload}\n</tool_call>")
-    return ("\n".join(blocks) + "\n") if blocks else ""
+# ---------------------------------------------------------------------------
+# messages 归一化 / options 构造
+# ---------------------------------------------------------------------------
 
 
 async def _to_ollama_messages(
@@ -1140,15 +1113,22 @@ async def _to_ollama_messages(
                     images.extend(video_frames)
                     text_parts.append(_build_video_frame_note(video_index, len(video_frames)))
             text = "\n".join(part for part in text_parts if part).strip()
-        if role == "assistant":
-            tool_text = _serialize_assistant_tool_calls_to_text(message.get("tool_calls"))
-            if tool_text:
-                text = (text + ("\n" if text else "") + tool_text).rstrip()
         entry: Dict[str, Any] = {"role": role, "content": text}
+        if role == "assistant":
+            tool_calls = normalize_assistant_tool_calls(message.get("tool_calls"))
+            if tool_calls:
+                entry["tool_calls"] = tool_calls
+        elif role == "tool":
+            tool_call_id = str(message.get("tool_call_id") or "").strip()
+            if tool_call_id:
+                entry["tool_call_id"] = tool_call_id
+            name = str(message.get("name") or message.get("tool_name") or "").strip()
+            if name:
+                entry["tool_name"] = name
         if images:
             entry["images"] = images
         converted.append(entry)
-    return fold_tool_roles_for_ollama(converted)
+    return converted
 
 
 def _build_unsupported_multimodal_message(
@@ -1370,6 +1350,63 @@ def _build_final_stats(
     return stats
 
 
+_OLLAMA_EOF_DUMP = os.environ.get("VITOOM_OLLAMA_EOF_DUMP", "/tmp/vitoom-ollama-eof.json")
+_OLLAMA_LAST_DUMP = os.environ.get("VITOOM_OLLAMA_LAST_DUMP", "/tmp/vitoom-ollama-last.json")
+
+
+def _jsonable_chat_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    dumped: List[Dict[str, Any]] = []
+    for message in messages:
+        item = {key: value for key, value in message.items() if key != "images"}
+        images = message.get("images")
+        if images:
+            item["images_count"] = len(images)
+        dumped.append(item)
+    return dumped
+
+
+def _serialize_chat_dump(kwargs: Dict[str, Any], *, error: str | None = None) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "kwargs": {
+            **{key: value for key, value in kwargs.items() if key != "messages"},
+            "messages": _jsonable_chat_messages(list(kwargs.get("messages") or [])),
+        }
+    }
+    if error:
+        payload["error"] = error
+    return payload
+
+
+def _write_chat_dump(path: str, payload: Dict[str, Any]) -> None:
+    Path(path).write_text(json.dumps(payload, ensure_ascii=False, default=str), encoding="utf-8")
+
+
+def _dump_ollama_chat_start(kwargs: Dict[str, Any]) -> None:
+    try:
+        _write_chat_dump(_OLLAMA_LAST_DUMP, _serialize_chat_dump(kwargs))
+        logger.info(
+            "Ollama chat request dumped to %s messages=%s tools=%s",
+            _OLLAMA_LAST_DUMP,
+            len(kwargs.get("messages") or []),
+            [
+                ((tool.get("function") or {}).get("name") if isinstance(tool, dict) else None)
+                for tool in (kwargs.get("tools") or [])
+            ],
+        )
+    except Exception:
+        logger.exception("Failed to dump last Ollama request to %s", _OLLAMA_LAST_DUMP)
+
+
+def _dump_ollama_chat_failure(kwargs: Dict[str, Any], exc: BaseException) -> None:
+    try:
+        payload = _serialize_chat_dump(kwargs, error=f"{type(exc).__name__}: {exc}")
+        _write_chat_dump(_OLLAMA_EOF_DUMP, payload)
+        _write_chat_dump(_OLLAMA_LAST_DUMP, payload)
+        logger.error("Ollama chat failed (%s); dumped request to %s", exc, _OLLAMA_EOF_DUMP)
+    except Exception:
+        logger.exception("Ollama chat failed; also failed to dump request to %s", _OLLAMA_EOF_DUMP)
+
+
 async def _call_chat_stream(
     *,
     client: Any,
@@ -1402,12 +1439,24 @@ async def _call_chat_stream(
                 kwargs.pop(optional_key, None)
                 removed.append(optional_key)
         if not removed:
+            _dump_ollama_chat_failure(kwargs, exc)
             raise
         logger.info(
             "ollama.AsyncClient.chat does not accept %s; retrying without it. Upgrade `ollama` to unlock.",
             ",".join(removed),
         )
-        return await client.chat(**kwargs)
+        try:
+            return await client.chat(**kwargs)
+        except asyncio.CancelledError:
+            raise
+        except Exception as retry_exc:
+            _dump_ollama_chat_failure(kwargs, retry_exc)
+            raise
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        _dump_ollama_chat_failure(kwargs, exc)
+        raise
 
 
 async def stream_chat_text(
@@ -1459,6 +1508,16 @@ async def stream_chat_text(
     async def _run() -> AsyncIterator[Dict[str, Any]]:
         started_at = time.perf_counter()
         first_delta_at: Optional[float] = None
+        chat_kwargs: Dict[str, Any] = {
+            "model": bundle.tag,
+            "messages": ollama_messages,
+            "stream": True,
+            "options": options or None,
+            "keep_alive": keep_alive,
+            "think": think,
+        }
+        if normalized_tools:
+            chat_kwargs["tools"] = normalized_tools
         stream = await _call_chat_stream(
             client=bundle.client,
             tag=bundle.tag,
@@ -1510,6 +1569,11 @@ async def stream_chat_text(
                 if combined_delta or finished:
                     yield payload
                 await asyncio.sleep(0)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            _dump_ollama_chat_failure(chat_kwargs, exc)
+            raise
         finally:
             # 主动关流，防止 httpx 连接残留把 ollama 的 slot 占住。
             close = getattr(stream, "aclose", None)
