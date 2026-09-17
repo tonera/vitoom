@@ -53,9 +53,8 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 from common.io_utils import download_url_to_tempfile
 from common.logger import get_logger
-from text.runtime.ollama_messages import fold_tool_roles_for_ollama, inject_qwen_tool_schema
-
 from text.runtime.common import count_multimodal_parts
+from text.runtime.ollama_messages import fold_tool_roles_for_ollama
 from text.runtime.runtime_resolver import TextRuntimePolicy
 
 logger = get_logger(__name__)
@@ -1435,13 +1434,10 @@ async def stream_chat_text(
         }
         return
 
-    ollama_messages = inject_qwen_tool_schema(
-        await _to_ollama_messages(
-            bundle,
-            messages,
-            mm_processor_kwargs=mm_processor_kwargs,
-        ),
-        [dict(tool) for tool in tools if isinstance(tool, dict)] if tools else None,
+    ollama_messages = await _to_ollama_messages(
+        bundle,
+        messages,
+        mm_processor_kwargs=mm_processor_kwargs,
     )
     options = _build_ollama_options(
         policy=bundle.policy,
@@ -1456,6 +1452,9 @@ async def stream_chat_text(
     # 对支持 thinking 的官方模型（如 qwen3.6），False 必须显式传给 Ollama；否则 daemon
     # 可能按模型默认行为返回 `message.thinking`，而不是最终 `message.content`。
     think = bool(bundle.policy.enable_thinking) if enable_thinking is None else bool(enable_thinking)
+    normalized_tools = (
+        [dict(tool) for tool in tools if isinstance(tool, dict)] if tools else None
+    )
 
     async def _run() -> AsyncIterator[Dict[str, Any]]:
         started_at = time.perf_counter()
@@ -1465,7 +1464,7 @@ async def stream_chat_text(
             tag=bundle.tag,
             messages=ollama_messages,
             options=options,
-            tools=None,
+            tools=normalized_tools,
             keep_alive=keep_alive,
             think=think,
         )
