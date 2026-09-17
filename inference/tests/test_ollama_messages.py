@@ -1,4 +1,8 @@
-from text.runtime.ollama_messages import fold_tool_roles_for_ollama, wrap_qwen_tool_response
+from text.runtime.ollama_messages import (
+    fold_tool_roles_for_ollama,
+    inject_qwen_tool_schema,
+    wrap_qwen_tool_response,
+)
 
 
 def test_wrap_tool_response_is_idempotent() -> None:
@@ -24,3 +28,25 @@ def test_fold_tool_roles_merges_consecutive_results() -> None:
     assert '"origin":"a"' in last
     assert '"origin":"b"' in last
     assert all(item["role"] != "tool" for item in folded)
+
+
+def test_inject_qwen_tool_schema_appends_to_system() -> None:
+    tools = [{
+        "type": "function",
+        "function": {
+            "name": "search_web",
+            "description": "Search",
+            "parameters": {"type": "object", "properties": {"query": {"type": "string"}}},
+        },
+    }]
+    injected = inject_qwen_tool_schema(
+        [{"role": "system", "content": "你是行程顾问。"}, {"role": "user", "content": "故宫"}],
+        tools,
+    )
+    assert injected[0]["role"] == "system"
+    assert "你是行程顾问。" in injected[0]["content"]
+    assert "<tools>" in injected[0]["content"]
+    assert "search_web" in injected[0]["content"]
+    assert injected[1]["content"] == "故宫"
+    again = inject_qwen_tool_schema(injected, tools)
+    assert again[0]["content"].count("# Tools") == 1
