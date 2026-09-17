@@ -53,6 +53,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 from common.io_utils import download_url_to_tempfile
 from common.logger import get_logger
+from text.runtime.ollama_messages import fold_tool_roles_for_ollama
 
 from text.runtime.common import count_multimodal_parts
 from text.runtime.runtime_resolver import TextRuntimePolicy
@@ -1147,12 +1148,8 @@ async def _to_ollama_messages(
         entry: Dict[str, Any] = {"role": role, "content": text}
         if images:
             entry["images"] = images
-        if role == "tool":
-            name = str(message.get("name") or "").strip()
-            if name:
-                entry["name"] = name
         converted.append(entry)
-    return converted
+    return fold_tool_roles_for_ollama(converted)
 
 
 def _build_unsupported_multimodal_message(
