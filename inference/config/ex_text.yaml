@@ -27,11 +27,6 @@ config:
     trust_remote_code: true
     # Thinking mode; overridable by task / session metadata.
     enable_thinking: false
-    # Qwen3.8-27B-OBLITERATED card: above 0.5 the output gets worse; long runs use 0.2.
-    # When this key is present, the request temperature is ignored.
-    temperature: 0.2
-    # Same card: 1.15 stops loops on repeated wording. Ollama receives it as repeat_penalty.
-    repetition_penalty: 1.15
     # Gemma 4 MTP (vLLM / transformers): model is relative to models_dir; disabled if not found.
     # speculative_config:
     #   method: mtp

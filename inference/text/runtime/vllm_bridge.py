@@ -753,7 +753,6 @@ def _build_sampling_params(
     top_k: Any = None,
     presence_penalty: Any = None,
     frequency_penalty: Any = None,
-    repetition_penalty: Any = None,
     output_kind: Any = None,
 ) -> Any:
     try:
@@ -773,8 +772,6 @@ def _build_sampling_params(
         kwargs["presence_penalty"] = _coerce_float(presence_penalty, 0.0)
     if frequency_penalty is not None:
         kwargs["frequency_penalty"] = _coerce_float(frequency_penalty, 0.0)
-    if repetition_penalty is not None:
-        kwargs["repetition_penalty"] = _coerce_float(repetition_penalty, 1.0)
     if output_kind is not None:
         kwargs["output_kind"] = output_kind
     return SamplingParams(**kwargs)
@@ -792,7 +789,6 @@ async def stream_chat_text(
     top_k: Any = None,
     presence_penalty: Any = None,
     frequency_penalty: Any = None,
-    repetition_penalty: Any = None,
     mm_processor_kwargs: Optional[Dict[str, Any]] = None,
     tools: Optional[List[Dict[str, Any]]] = None,
 ) -> AsyncIterator[Dict[str, Any]]:
@@ -828,7 +824,6 @@ async def stream_chat_text(
         top_k=top_k,
         presence_penalty=presence_penalty,
         frequency_penalty=frequency_penalty,
-        repetition_penalty=repetition_penalty,
         output_kind=RequestOutputKind.DELTA,
     )
 
@@ -913,7 +908,6 @@ async def generate_chat_text(
     top_k: Any = None,
     presence_penalty: Any = None,
     frequency_penalty: Any = None,
-    repetition_penalty: Any = None,
     mm_processor_kwargs: Optional[Dict[str, Any]] = None,
     tools: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
@@ -929,7 +923,6 @@ async def generate_chat_text(
         top_k=top_k,
         presence_penalty=presence_penalty,
         frequency_penalty=frequency_penalty,
-        repetition_penalty=repetition_penalty,
         mm_processor_kwargs=mm_processor_kwargs,
         tools=tools,
     ):

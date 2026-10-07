@@ -1190,7 +1190,6 @@ def _build_ollama_options(
     top_k: Any,
     presence_penalty: Any,
     frequency_penalty: Any,
-    repetition_penalty: Any = None,
 ) -> Dict[str, Any]:
     options: Dict[str, Any] = {}
     num_ctx = policy.max_model_len
@@ -1220,10 +1219,6 @@ def _build_ollama_options(
     for key in _OLLAMA_EXTRA_OPTION_KEYS:
         if key in policy.ollama_cfg and policy.ollama_cfg[key] not in (None, ""):
             options[key] = policy.ollama_cfg[key]
-
-    repeat = _coerce_optional_float(repetition_penalty)
-    if repeat is not None and repeat > 0:
-        options["repeat_penalty"] = repeat
 
     return options
 
@@ -1476,7 +1471,6 @@ async def stream_chat_text(
     top_k: Any = None,
     presence_penalty: Any = None,
     frequency_penalty: Any = None,
-    repetition_penalty: Any = None,
     mm_processor_kwargs: Optional[Dict[str, Any]] = None,
     tools: Optional[List[Dict[str, Any]]] = None,
 ) -> AsyncIterator[Dict[str, Any]]:
@@ -1502,7 +1496,6 @@ async def stream_chat_text(
         top_k=top_k,
         presence_penalty=presence_penalty,
         frequency_penalty=frequency_penalty,
-        repetition_penalty=repetition_penalty,
     )
     keep_alive = bundle.policy.ollama_cfg.get("keep_alive", DEFAULT_KEEP_ALIVE)
     # 对支持 thinking 的官方模型（如 qwen3.6），False 必须显式传给 Ollama；否则 daemon
@@ -1648,7 +1641,6 @@ async def generate_chat_text(
     top_k: Any = None,
     presence_penalty: Any = None,
     frequency_penalty: Any = None,
-    repetition_penalty: Any = None,
     mm_processor_kwargs: Optional[Dict[str, Any]] = None,
     tools: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
@@ -1664,7 +1656,6 @@ async def generate_chat_text(
         top_k=top_k,
         presence_penalty=presence_penalty,
         frequency_penalty=frequency_penalty,
-        repetition_penalty=repetition_penalty,
         mm_processor_kwargs=mm_processor_kwargs,
         tools=tools,
     ):

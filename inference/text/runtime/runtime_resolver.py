@@ -28,9 +28,6 @@ class TextRuntimePolicy:
     # 且推理侧不再使用请求里的 ``max_tokens``。键存在但值为空/非法时用 2048。
     # 故意不参与 ``cache_key``，避免仅改补全上限就触发 vLLM 引擎重建。
     service_max_tokens: Optional[int] = None
-    # 服务 YAML 写了 temperature / repetition_penalty 时覆盖请求。同样不进 cache_key。
-    service_temperature: Optional[float] = None
-    repetition_penalty: Optional[float] = None
 
     @property
     def cache_key(self) -> str:
@@ -80,26 +77,6 @@ def _coerce_float(value: Any, default: float) -> float:
         return default
     if coerced <= 0:
         return default
-    return coerced
-
-
-def _optional_non_negative_float(value: Any) -> Optional[float]:
-    try:
-        coerced = float(value)
-    except Exception:
-        return None
-    if coerced < 0:
-        return None
-    return coerced
-
-
-def _optional_positive_float(value: Any) -> Optional[float]:
-    try:
-        coerced = float(value)
-    except Exception:
-        return None
-    if coerced <= 0:
-        return None
     return coerced
 
 
@@ -295,8 +272,6 @@ def resolve_text_runtime_policy(params: Any) -> TextRuntimePolicy:
 
     trust_remote_code = _coerce_bool(runtime_cfg.get("trust_remote_code"), True)
     enable_thinking = _coerce_bool(runtime_cfg.get("enable_thinking"), False)
-    service_temperature = _optional_non_negative_float(runtime_cfg.get("temperature")) if "temperature" in runtime_cfg else None
-    repetition_penalty = _optional_positive_float(runtime_cfg.get("repetition_penalty")) if "repetition_penalty" in runtime_cfg else None
     allow_cpu_offload = _coerce_bool(transformers_cfg.get("allow_cpu_offload"), False)
     engine_kwargs = (
         dict(vllm_cfg.get("engine_kwargs"))
@@ -335,6 +310,4 @@ def resolve_text_runtime_policy(params: Any) -> TextRuntimePolicy:
         model_kwargs=dict(model_kwargs),
         ollama_cfg=dict(ollama_cfg),
         service_max_tokens=service_max_tokens,
-        service_temperature=service_temperature,
-        repetition_penalty=repetition_penalty,
     )

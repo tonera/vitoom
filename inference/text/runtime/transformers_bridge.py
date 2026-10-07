@@ -275,7 +275,6 @@ def _build_generation_kwargs(
     temperature: Any = None,
     top_p: Any = None,
     top_k: Any = None,
-    repetition_penalty: Any = None,
 ) -> Dict[str, Any]:
     tokenizer = bundle.tokenizer
     eos_token_id = getattr(tokenizer, "eos_token_id", None)
@@ -302,8 +301,6 @@ def _build_generation_kwargs(
                 parsed_top_k = None
             if parsed_top_k is not None and parsed_top_k > 0:
                 kwargs["top_k"] = parsed_top_k
-    if repetition_penalty is not None:
-        kwargs["repetition_penalty"] = _coerce_float(repetition_penalty, 1.0)
 
     if isinstance(inputs, dict):
         kwargs.update(inputs)
@@ -593,7 +590,6 @@ async def stream_chat_text(
     top_k: Any = None,
     presence_penalty: Any = None,
     frequency_penalty: Any = None,
-    repetition_penalty: Any = None,
     mm_processor_kwargs: Optional[Dict[str, Any]] = None,
     tools: Optional[List[Dict[str, Any]]] = None,
 ) -> AsyncIterator[Dict[str, Any]]:
@@ -638,7 +634,6 @@ async def stream_chat_text(
             temperature=temperature,
             top_p=top_p,
             top_k=top_k,
-            repetition_penalty=repetition_penalty,
         )
         generation_kwargs["streamer"] = streamer
         generation_kwargs["stopping_criteria"] = StoppingCriteriaList([_FlagStoppingCriteria()])
@@ -734,7 +729,6 @@ async def generate_chat_text(
     top_k: Any = None,
     presence_penalty: Any = None,
     frequency_penalty: Any = None,
-    repetition_penalty: Any = None,
     mm_processor_kwargs: Optional[Dict[str, Any]] = None,
     tools: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
@@ -750,7 +744,6 @@ async def generate_chat_text(
         top_k=top_k,
         presence_penalty=presence_penalty,
         frequency_penalty=frequency_penalty,
-        repetition_penalty=repetition_penalty,
         mm_processor_kwargs=mm_processor_kwargs,
         tools=tools,
     ):
