@@ -102,6 +102,14 @@ class AnimaPipeline:
                 "- 或者：通过 request.model_config 传入 anima_paths（由组件注入层转换并透传）。"
             )
         paths = _parse_anima_paths(anima_paths, root=root_dir)
+        dit_override = str(kwargs.get("dit_path") or "").strip()
+        if dit_override:
+            paths = AnimaPaths(
+                dit_path=str(Path(dit_override).expanduser()),
+                vae_path=paths.vae_path,
+                qwen3=paths.qwen3,
+                t5_tokenizer_dir=paths.t5_tokenizer_dir,
+            )
 
         # 2) runtime options（均为可选）
         device = str(kwargs.get("device") or ("cuda" if torch.cuda.is_available() else "cpu"))

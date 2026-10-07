@@ -12,7 +12,7 @@ from .logging_utils import setup_logging
 from .models import Anima, AutoencoderKLQwenImage, load_vae
 from .tokenizers import Qwen3LocalPaths, load_qwen3_text_encoder, load_t5_tokenizer
 from .torch_transfer_utils import pretouch_module_cpu_tensors
-from .weights import load_state_dict_any
+from .weights import load_state_dict_any, strip_prefix
 
 setup_logging()
 import logging
@@ -110,6 +110,11 @@ def _load_anima_dit(
     logger.info(f"Loading DiT weights: {dit_path} (loading_device={loading_device})")
     t0 = time.perf_counter()
     sd = load_state_dict_any(dit_path, device=loading_device, dtype=None, strip_net_prefix=True)
+    # Civitai / ComfyUI 的 Anima checkpoint 键名是 model.diffusion_model.*，不是 sd-scripts 的 net.*
+    if any(k.startswith("model.diffusion_model.") for k in sd):
+        sd = strip_prefix(sd, "model.diffusion_model.")
+    elif any(k.startswith("diffusion_model.") for k in sd):
+        sd = strip_prefix(sd, "diffusion_model.")
     t1 = time.perf_counter()
 
     load_sig = inspect.signature(model.load_state_dict)
