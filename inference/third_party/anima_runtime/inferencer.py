@@ -59,6 +59,32 @@ def _parse_dtype(name: Union[str, torch.dtype]) -> torch.dtype:
     raise ValueError(f"不支持的 dtype: {name}")
 
 
+def _normalize_dit_state_dict(sd: dict) -> dict:
+    """兼容 sd-scripts 的 net.* 与 Civitai/ComfyUI 的 model.diffusion_model.*。"""
+    if any(k.startswith("model.diffusion_model.") for k in sd):
+        return strip_prefix(sd, "model.diffusion_model.")
+    if any(k.startswith("diffusion_model.") for k in sd):
+        return strip_prefix(sd, "diffusion_model.")
+    return sd
+
+
+def _infer_num_blocks(sd: dict, default: int = 28) -> int:
+    indices = []
+    for key in sd:
+        if not key.startswith("blocks."):
+            continue
+        index = key.split(".", 2)[1]
+        if index.isdigit():
+            indices.append(int(index))
+    if not indices:
+        return default
+    count = max(indices) + 1
+    missing = [i for i in range(count) if i not in set(indices)]
+    if missing:
+        raise RuntimeError(f"DiT blocks 不连续，缺少: {missing[:10]}")
+    return count
+
+
 def _load_anima_dit(
     dit_path: str,
     *,
@@ -89,7 +115,6 @@ def _load_anima_dit(
         "max_fps": 30,
         "use_adaln_lora": True,
         "adaln_lora_dim": 256,
-        "num_blocks": 28,
         "num_heads": 16,
         "rope_h_extrapolation_ratio": 4.0,
         "rope_w_extrapolation_ratio": 4.0,
@@ -103,19 +128,19 @@ def _load_anima_dit(
     if loading_device is None:
         loading_device = torch.device("cpu")
 
+    logger.info(f"Loading DiT weights: {dit_path} (loading_device={loading_device})")
+    t0 = time.perf_counter()
+    sd = _normalize_dit_state_dict(
+        load_state_dict_any(dit_path, device=loading_device, dtype=None, strip_net_prefix=True)
+    )
+    num_blocks = _infer_num_blocks(sd)
+    dit_config["num_blocks"] = num_blocks
+    logger.info(f"DiT num_blocks={num_blocks}")
+    t1 = time.perf_counter()
+
     # 为了避免“随机初始化大模型参数”造成的构建耗时，推理默认不初始化权重（反正立刻加载 checkpoint）。
     build_device = loading_device if loading_device.type != "cpu" else torch.device("cpu")
     model = Anima(**dit_config, initialize_weights=False).to(device=build_device, dtype=dtype).eval()
-
-    logger.info(f"Loading DiT weights: {dit_path} (loading_device={loading_device})")
-    t0 = time.perf_counter()
-    sd = load_state_dict_any(dit_path, device=loading_device, dtype=None, strip_net_prefix=True)
-    # Civitai / ComfyUI 的 Anima checkpoint 键名是 model.diffusion_model.*，不是 sd-scripts 的 net.*
-    if any(k.startswith("model.diffusion_model.") for k in sd):
-        sd = strip_prefix(sd, "model.diffusion_model.")
-    elif any(k.startswith("diffusion_model.") for k in sd):
-        sd = strip_prefix(sd, "diffusion_model.")
-    t1 = time.perf_counter()
 
     load_sig = inspect.signature(model.load_state_dict)
     if "assign" in load_sig.parameters:
