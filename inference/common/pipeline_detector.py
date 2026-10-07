@@ -343,7 +343,7 @@ class PipelineDetector:
         args.update(overrides)
 
         # 部分家族：降低 CPU 峰值内存（避免加载阶段被 OOM killer 杀）
-        if mv in {"qwen", "qwen.edit", "zimage"}:
+        if mv in {"qwen", "qwen.edit", "qwen.image21", "krea2", "zimage"}:
             args["low_cpu_mem_usage"] = True
 
         # 3) original_config / cache_dir / use_safetensors 等单文件 special kwargs 已收敛到 build_component_overrides()

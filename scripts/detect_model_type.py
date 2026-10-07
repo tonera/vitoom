@@ -62,6 +62,10 @@ def _detect_family_from_model_index(class_name: str) -> Optional[str]:
     cn = str(class_name or "").lower()
     if "zimage" in cn:
         return "zimage"
+    if "krea2" in cn or "krea-2" in cn:
+        return "krea2"
+    if "qwenimage21" in cn or "qwen-image-2.1" in cn or "qwenimage2.1" in cn:
+        return "qwen.image21"
     if "qwen" in cn and "edit" in cn:
         return "qwen.edit"
     if "qwen" in cn:
@@ -92,6 +96,10 @@ def detect_from_dir(model_dir: Path) -> DetectResult:
     name = model_dir.name.lower()
     if "z-image" in name or "zimage" in name:
         return DetectResult(str(model_dir), "dir", "zimage", "dirname contains zimage")
+    if "krea-2" in name or "krea2" in name:
+        return DetectResult(str(model_dir), "dir", "krea2", "dirname contains krea2")
+    if "qwen-image-2.1" in name or "qwen-image-21" in name or "qwenimage21" in name:
+        return DetectResult(str(model_dir), "dir", "qwen.image21", "dirname contains qwen-image-2.1")
     if "qwen" in name and "edit" in name:
         return DetectResult(str(model_dir), "dir", "qwen.edit", "dirname contains qwen+edit")
     if "qwen" in name:

@@ -492,6 +492,77 @@ class QwenInferenceParamSpec(InferenceParamSpec):
 
 
 @dataclass(frozen=True)
+class QwenImage21InferenceParamSpec(InferenceParamSpec):
+    """Qwen-Image-2.1：文生图与参考图编辑共用 QwenImage21Pipeline。"""
+
+    families: set[str] = None  # type: ignore[assignment]
+    pipeline_class_names: set[str] = None  # type: ignore[assignment]
+
+    def __post_init__(self):
+        object.__setattr__(self, "families", {"qwen.image21"})
+        object.__setattr__(self, "pipeline_class_names", {"QwenImage21Pipeline"})
+
+    def build(
+        self,
+        *,
+        pipeline_class_name: str,
+        request_params: InferenceRequestParams,
+        base: Dict[str, Any],
+        width: int,
+        height: int,
+        pipeline_instance: Any,
+    ) -> Dict[str, Any]:
+        base.update({"height": int(height), "width": int(width)})
+
+        if request_params.job_type == JT_POSE:
+            raise ValueError("qwen.image21 does not support POSE")
+
+        if request_params.job_type == JT_ED:
+            images = load_images_from_list(request_params.tpl_list or [])
+            if not images:
+                raise ValueError(f"{request_params.job_type} requires non-empty tpl_list with loadable images")
+            if len(images) > 10:
+                raise ValueError("qwen.image21 supports at most 10 reference images")
+            # 单图沿用官方示例的 PIL.Image；多参考图传 list。
+            base["image"] = images[0] if len(images) == 1 else images
+        elif request_params.url:
+            image = load_image(request_params.url)
+            if image:
+                base["image"] = image
+
+        return base
+
+
+@dataclass(frozen=True)
+class Krea2InferenceParamSpec(InferenceParamSpec):
+    """Krea 2 Turbo：8 步蒸馏文生图。guidance_scale 大于 0 会打开 CFG，必须保持 0。"""
+
+    families: set[str] = None  # type: ignore[assignment]
+    pipeline_class_names: set[str] = None  # type: ignore[assignment]
+
+    def __post_init__(self):
+        object.__setattr__(self, "families", {"krea2"})
+        object.__setattr__(self, "pipeline_class_names", {"Krea2Pipeline"})
+
+    def build(
+        self,
+        *,
+        pipeline_class_name: str,
+        request_params: InferenceRequestParams,
+        base: Dict[str, Any],
+        width: int,
+        height: int,
+        pipeline_instance: Any,
+    ) -> Dict[str, Any]:
+        if request_params.job_type in {JT_ED, JT_POSE}:
+            raise ValueError("krea2 only supports text-to-image")
+
+        base.update({"height": int(height), "width": int(width), "guidance_scale": 0.0})
+        base.pop("negative_prompt", None)
+        return base
+
+
+@dataclass(frozen=True)
 class ZImageInferenceParamSpec(InferenceParamSpec):
     families: set[str] = None  # type: ignore[assignment]
     pipeline_class_names: set[str] = None  # type: ignore[assignment]

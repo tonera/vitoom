@@ -13,8 +13,14 @@ from schemas import InferenceRequestParams
 
 SDXL_PONY_PROMPT_PREFIXES = ["score_9", "score_8_up", "score_7_up"]
 SDXL_DEFAULT_PROMPT_PREFIXES = ["masterpiece", "best quality"]
-EDITOR_MULTI_IMAGE_FAMILIES = {"flux2_klein", "qwen.edit"}
+EDITOR_MULTI_IMAGE_LIMITS = {
+    "flux2_klein": 9,
+    "qwen.edit": 9,
+    "qwen.image21": 10,
+}
+EDITOR_MULTI_IMAGE_FAMILIES = set(EDITOR_MULTI_IMAGE_LIMITS)
 EDITOR_SINGLE_IMAGE_FAMILIES = {"flux_kontext"}
+EDITOR_POSE_UNSUPPORTED_FAMILIES = {"qwen.image21"}
 EDITOR_SPECIAL_MODEL_NAMES = {"flux.1-depth-dev", "flux.1-canny-dev"}
 
 
@@ -111,13 +117,17 @@ async def preprocess_inference_params(
         if load_name in EDITOR_SPECIAL_MODEL_NAMES:
             pass
         elif mv := str(getattr(params, "family", "") or "").strip().lower():
+            if params.job_type == JT_POSE and mv in EDITOR_POSE_UNSUPPORTED_FAMILIES:
+                raise ValueError(f"{params.job_type} is not supported for family={mv}")
             if mv not in EDITOR_SINGLE_IMAGE_FAMILIES and mv not in EDITOR_MULTI_IMAGE_FAMILIES:
                 raise ValueError(
-                    f"{params.job_type} only supports flux_kontext / flux2_klein / qwen.edit "
+                    f"{params.job_type} only supports flux_kontext / flux2_klein / qwen.edit / qwen.image21 "
                     "or load_name=FLUX.1-Depth-dev / FLUX.1-Canny-dev"
                 )
-            if mv in EDITOR_MULTI_IMAGE_FAMILIES and len(tpl_list) > 9:
-                raise ValueError(f"{params.job_type} supports at most 9 input images for family={mv}")
+            if mv in EDITOR_MULTI_IMAGE_FAMILIES:
+                limit = int(EDITOR_MULTI_IMAGE_LIMITS[mv])
+                if len(tpl_list) > limit:
+                    raise ValueError(f"{params.job_type} supports at most {limit} input images for family={mv}")
         else:
             raise ValueError(f"{params.job_type} requires a supported family or load_name")
 

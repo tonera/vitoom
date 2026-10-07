@@ -289,7 +289,80 @@ def _scan_nunchaku_main_component_ckpt_in_dir(model_dir: Path, *, preferred_prec
     return _pick_one(cands)
 
 
+def _scan_svdq_rank_files(directory: Path) -> list[Path]:
+    """收集目录内 svdq-{precision}_r{rank}-*.safetensors。"""
+    if not directory.is_dir():
+        return []
+    found: list[Path] = []
+    try:
+        for cand in sorted(directory.iterdir(), key=lambda p: str(p)):
+            if not cand.is_file() or cand.suffix.lower() != ".safetensors":
+                continue
+            if _SVT_GENERIC_RE.match(cand.name):
+                found.append(cand)
+    except Exception:
+        return []
+    return found
+
+
+def _scan_nunchaku_text_files(directory: Path) -> list[Path]:
+    """收集目录内 svdq/awq-{precision}-*.safetensors（不含 _r{rank} 的主权重文件）。"""
+    if not directory.is_dir():
+        return []
+    found: list[Path] = []
+    try:
+        for cand in sorted(directory.iterdir(), key=lambda p: str(p)):
+            if not cand.is_file() or cand.suffix.lower() != ".safetensors":
+                continue
+            if _NUNCHAKU_TEXT_RE.match(cand.name):
+                found.append(cand)
+    except Exception:
+        return []
+    return found
+
+
+def _nunchaku_diffusers_sibling_dir(ctx: ComponentContext, model_dir: Path) -> Optional[Path]:
+    """
+    Nunchaku 导出布局是 ``<export>/diffusers`` + 同级 ``svdq-*.safetensors``。
+    仅当加载目录名叫 diffusers 时才扫父目录，避免把整个 models 根目录当成候选池。
+    """
+    if ctx.family not in {"krea2", "qwen.image21"}:
+        return None
+    if not model_dir.is_dir() or model_dir.name.lower() != "diffusers":
+        return None
+    parent = model_dir.parent
+    if parent.is_dir() and parent != model_dir:
+        return parent
+    return None
+
+
+def _family_export_transformer_candidates(ctx: ComponentContext) -> list[Path]:
+    """Krea 2 / Qwen-Image-2.1 的 deepcompressor 导出目录（相对 models_dir / weights_dir）。"""
+    subdirs = {
+        "qwen.image21": "Qwen-Image-2.1-Nunchaku",
+        "krea2": "Krea-2-Turbo-Nunchaku",
+    }
+    subdir = subdirs.get(ctx.family)
+    if not subdir:
+        return []
+    candidates: list[Path] = []
+    seen: set[str] = set()
+    for root in (ctx.models_dir, ctx.weights_dir):
+        if not str(root or "").strip():
+            continue
+        for cand in _scan_svdq_rank_files(Path(root) / subdir):
+            key = str(cand)
+            if key in seen:
+                continue
+            seen.add(key)
+            candidates.append(cand)
+    return candidates
+
+
 def _default_nunchaku_main_component_candidates(ctx: ComponentContext) -> list[Path]:
+    if ctx.family in {"krea2", "qwen.image21"}:
+        return _family_export_transformer_candidates(ctx)
+
     load_names = _load_name_candidates_for_auto_detect(ctx)
     specs: list[tuple[str, str]] = []
 
@@ -372,9 +445,14 @@ def _pick_nunchaku_main_component_from_existing_paths(
 def _detect_nunchaku_main_component_ckpt(
     ctx: ComponentContext, model_dir: Path, *, preferred_precision: Optional[str]
 ) -> Optional[Path]:
-    ckpt = _scan_nunchaku_main_component_ckpt_in_dir(model_dir, preferred_precision=preferred_precision)
-    if ckpt is not None:
-        return ckpt
+    scan_dirs = [model_dir]
+    sibling = _nunchaku_diffusers_sibling_dir(ctx, model_dir)
+    if sibling is not None:
+        scan_dirs.append(sibling)
+    for directory in scan_dirs:
+        ckpt = _scan_nunchaku_main_component_ckpt_in_dir(directory, preferred_precision=preferred_precision)
+        if ckpt is not None:
+            return ckpt
     return _pick_nunchaku_main_component_from_existing_paths(
         _default_nunchaku_main_component_candidates(ctx),
         preferred_precision=preferred_precision,
@@ -400,12 +478,46 @@ def _default_nunchaku_text_encoder_candidates(ctx: ComponentContext) -> list[Pat
             models_dir / "Qwen2.5vl-Nunchaku" / "svdq-int4-Qwen2.5vl-Nunchaku.safetensors",
             weights_dir / "Qwen2.5vl-Nunchaku" / "svdq-int4-Qwen2.5vl-Nunchaku.safetensors",
         ]
+    # Qwen-Image-2.1 用 Qwen3-VL-8B；Krea 2 Turbo 用 Qwen3-VL-4B。两者都不能用 Qwen2.5-VL 编码器。
+    encoder_subdirs = {
+        "qwen.image21": "Qwen3-VL-8B-Instruct-Nunchaku",
+        "krea2": "Qwen3-VL-4B-Instruct-Nunchaku",
+    }
+    encoder_subdir = encoder_subdirs.get(fam)
+    if encoder_subdir:
+        found: list[Path] = []
+        seen: set[str] = set()
+        for root in (models_dir, weights_dir):
+            for cand in _scan_nunchaku_text_files(root / encoder_subdir):
+                key = str(cand)
+                if key in seen:
+                    continue
+                seen.add(key)
+                found.append(cand)
+        return found
     if fam in {"flux", "flux_kontext", "chroma"}:
         return [
             models_dir / "nunchaku-t5" / "awq-int4-flux.1-t5xxl.safetensors",
             weights_dir / "nunchaku-t5" / "awq-int4-flux.1-t5xxl.safetensors",
         ]
     return []
+
+
+def _pick_nunchaku_text_file(directory: Path, *, preferred_precision: Optional[str]) -> Optional[Path]:
+    cands: list[tuple[str, str, Path]] = []
+    for p in _scan_nunchaku_text_files(directory):
+        m = _NUNCHAKU_TEXT_RE.match(p.name)
+        if not m:
+            continue
+        cands.append((str(m.group("prec")).lower(), str(m.group("kind")).lower(), p))
+    if not cands:
+        return None
+    if preferred_precision in _NUNCHAKU_SUPPORTED_PRECISIONS:
+        preferred = [x for x in cands if x[0] == preferred_precision]
+        if preferred:
+            cands = preferred
+    cands = sorted(cands, key=lambda x: (0 if x[1] == "svdq" else 1, str(x[2])))
+    return cands[0][2]
 
 
 def _detect_nunchaku_text_encoder_ckpt(ctx: ComponentContext, model_dir: Path, *, preferred_precision: Optional[str]) -> tuple[Optional[Path], str]:
@@ -416,24 +528,14 @@ def _detect_nunchaku_text_encoder_ckpt(ctx: ComponentContext, model_dir: Path, *
     否则根据 family 使用固定 fallback。
     """
     if model_dir.is_dir():
-        cands: list[tuple[str, str, Path]] = []
-        try:
-            for p in model_dir.iterdir():
-                if not p.is_file() or p.suffix.lower() != ".safetensors":
-                    continue
-                m = _NUNCHAKU_TEXT_RE.match(p.name)
-                if not m:
-                    continue
-                cands.append((str(m.group("prec")).lower(), str(m.group("kind")).lower(), p))
-        except Exception:
-            cands = []
-        if cands:
-            if preferred_precision in _NUNCHAKU_SUPPORTED_PRECISIONS:
-                preferred = [x for x in cands if x[0] == preferred_precision]
-                if preferred:
-                    cands = preferred
-            cands = sorted(cands, key=lambda x: (0 if x[1] == "svdq" else 1, str(x[2])))
-            return cands[0][2], "model_dir"
+        picked = _pick_nunchaku_text_file(model_dir, preferred_precision=preferred_precision)
+        if picked is not None:
+            return picked, "model_dir"
+        sibling = _nunchaku_diffusers_sibling_dir(ctx, model_dir)
+        if sibling is not None:
+            sibling_ckpt = _pick_nunchaku_text_file(sibling, preferred_precision=preferred_precision)
+            if sibling_ckpt is not None:
+                return sibling_ckpt, "diffusers_sibling"
     fallback = _candidate_from_existing_paths(
         _default_nunchaku_text_encoder_candidates(ctx),
         preferred_precision=preferred_precision,
@@ -703,6 +805,36 @@ def _load_nunchaku_qwen_encoder(ctx: ComponentContext, ckpt: Path, *, key: str) 
     return NunchakuQwenEncoderModel.from_pretrained(str(ckpt))
 
 
+def _nunchaku_cuda_load_kwargs(ctx: ComponentContext) -> dict:
+    """Krea 2 / Qwen-Image-2.1 的量化模块按示例在 CUDA 上直接构建。"""
+    kwargs: dict = {"torch_dtype": ctx.device_plan.torch_dtype}
+    if str(getattr(ctx.device_plan, "device", "") or "") == "cuda":
+        kwargs["device"] = "cuda"
+    return kwargs
+
+
+def _load_nunchaku_transformer_qwen_image21(ctx: ComponentContext, ckpt: Path) -> Any:
+    from nunchaku import NunchakuQwenImage21Transformer2DModel  # type: ignore
+
+    ctx.logger.info(f"[inject] qwen.image21 nunchaku_transformer: {ckpt}")
+    # 该实现不支持 offload=True。
+    return NunchakuQwenImage21Transformer2DModel.from_pretrained(str(ckpt), **_nunchaku_cuda_load_kwargs(ctx))
+
+
+def _load_nunchaku_transformer_krea2(ctx: ComponentContext, ckpt: Path) -> Any:
+    from nunchaku import NunchakuKrea2Transformer2DModel  # type: ignore
+
+    ctx.logger.info(f"[inject] krea2 nunchaku_transformer: {ckpt}")
+    return NunchakuKrea2Transformer2DModel.from_pretrained(str(ckpt), **_nunchaku_cuda_load_kwargs(ctx))
+
+
+def _load_nunchaku_qwen3vl_encoder(ctx: ComponentContext, ckpt: Path, *, key: str) -> Any:
+    from nunchaku import NunchakuQwen3VLEncoderModel  # type: ignore
+
+    ctx.logger.info(f"[inject] {ctx.family} {key}(nunchaku-qwen3-vl): {ckpt}")
+    return NunchakuQwen3VLEncoderModel.from_pretrained(str(ckpt), **_nunchaku_cuda_load_kwargs(ctx))
+
+
 NUNCHAKU_TRANSFORMER_LOADER: dict[str, Callable[[ComponentContext, Path], Any]] = {
     "flux": _load_nunchaku_transformer_flux,
     "flux_kontext": _load_nunchaku_transformer_flux,
@@ -710,6 +842,8 @@ NUNCHAKU_TRANSFORMER_LOADER: dict[str, Callable[[ComponentContext, Path], Any]] 
     "flux2_klein": _load_nunchaku_transformer_flux2,
     "qwen": _load_nunchaku_transformer_qwen,
     "qwen.edit": _load_nunchaku_transformer_qwen,
+    "qwen.image21": _load_nunchaku_transformer_qwen_image21,
+    "krea2": _load_nunchaku_transformer_krea2,
     "zimage": _load_nunchaku_transformer_zimage,
     "chroma": _load_nunchaku_transformer_chroma,
 }
@@ -722,8 +856,12 @@ NUNCHAKU_TEXT_ENCODER_SLOT: dict[str, str] = {
     "flux2_klein": "text_encoder",
     "qwen": "text_encoder",
     "qwen.edit": "text_encoder",
+    "qwen.image21": "text_encoder",
+    "krea2": "text_encoder",
     "chroma": "text_encoder",
 }
+
+NUNCHAKU_QWEN3VL_ENCODER_FAMILIES = frozenset({"qwen.image21", "krea2"})
 
 
 def _apply_auto_nunchaku_overrides(
@@ -841,6 +979,10 @@ def _apply_auto_nunchaku_overrides(
 
     if ctx.family in {"flux", "flux_kontext", "chroma"}:
         loader = lambda ctx=ctx, text_ckpt=text_ckpt, text_slot=text_slot: _load_nunchaku_t5_encoder(  # noqa: E731
+            ctx, text_ckpt, key=text_slot
+        )
+    elif ctx.family in NUNCHAKU_QWEN3VL_ENCODER_FAMILIES:
+        loader = lambda ctx=ctx, text_ckpt=text_ckpt, text_slot=text_slot: _load_nunchaku_qwen3vl_encoder(  # noqa: E731
             ctx, text_ckpt, key=text_slot
         )
     else:

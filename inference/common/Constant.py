@@ -14,6 +14,10 @@ MODEL_SD3 = ['sd3', 'presd3', 'SDXL 3.0']
 MODEL_FLUX = ['flux', 'flux-d', 'flux-s', 'Flux.1 D', 'Flux.1 S']
 MODEL_QWEN = ['qwen', 'Qwen']
 MODEL_QWEN_EDIT = ['qwen.edit', 'qwen-edit', 'Qwen-edit']
+# Qwen-Image-2.1：同一 QwenImage21Pipeline 同时支持文生图和参考图编辑
+MODEL_QWEN_IMAGE_21 = ['qwen.image21', 'qwen-image-2.1', 'Qwen-Image-2.1', 'Qwen-Image-21']
+# Krea 2 Turbo：8 步蒸馏文生图，guidance_scale 必须为 0
+MODEL_KREA2 = ['krea2', 'krea-2-turbo', 'Krea-2-Turbo', 'Krea2']
 MODEL_FLUX2 = ['flux2', 'Flux.2 D']
 MODEL_FLUX2_KLEIN = ['flux2_klein', 'Flux.2 Klein']
 MODEL_Z_IMAGE = ['zimage', 'ZImageTurbo','z-image','z-image-turbo']
@@ -46,6 +50,8 @@ FAMILY_ALLOWED_KEYS: dict[str, set[str]] = {
     # qwen
     "qwen": {"text_encoder", "nunchaku_text_encoder", "transformer", "nunchaku_transformer", "vae"},
     "qwen.edit": {"text_encoder", "nunchaku_text_encoder", "transformer", "nunchaku_transformer", "vae"},
+    "qwen.image21": {"text_encoder", "nunchaku_text_encoder", "transformer", "nunchaku_transformer", "vae"},
+    "krea2": {"text_encoder", "nunchaku_text_encoder", "transformer", "nunchaku_transformer", "vae"},
     # zimage / chroma
     "zimage": {"text_encoder", "transformer", "nunchaku_transformer", "vae"},
     "chroma": {"text_encoder", "nunchaku_text_encoder", "transformer", "nunchaku_transformer", "vae"},

@@ -5,6 +5,7 @@
 - 编辑输入统一来自 tpl_list
 - flux_kontext / FLUX.1-Depth-dev / FLUX.1-Canny-dev 只使用第一张图
 - flux2_klein / qwen.edit 支持多图编辑（上游预处理已限制 <= 9）
+- qwen.image21 支持最多 10 张参考图，不支持 POSE
 - 运行期清理/后处理/结果回传与 DiffusionHandler 保持一致
 """
 

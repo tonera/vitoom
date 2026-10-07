@@ -35,6 +35,8 @@ _FAMILY_ALIASES_LIST: Dict[str, List[str]] = {
     "zimage": ["zimage", "ZImageTurbo"],
     "qwen": ["qwen", "Qwen"],
     "qwen.edit": ["qwen.edit", "qwen-edit", "Qwen-edit"],
+    "qwen.image21": ["qwen.image21", "qwen-image-2.1", "Qwen-Image-2.1", "Qwen-Image-21"],
+    "krea2": ["krea2", "krea-2-turbo", "Krea-2-Turbo", "Krea2"],
     "wan": ["wan", "Wan", "Wan-edit", "Wan-painting", "Wan-sketch"],
     "wan_video": ["wan_video", "Wan-video"],
 }

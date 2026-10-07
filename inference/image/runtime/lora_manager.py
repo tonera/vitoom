@@ -135,36 +135,32 @@ def load_loras_into_pipe(pipe: Any, family: str, loras_dir: str, lora_list: list
 
     transformer = getattr(pipe, "transformer", None)
     if transformer is not None and _is_nunchaku_transformer(transformer):
-        # nunchaku  transformer只有 NunchakuFluxTransformer2dModel支持lora
-        # try:
-        #     from nunchaku import NunchakuFluxTransformer2dModel # type: ignore
-        # except Exception:
-        #     NunchakuFluxTransformer2dModel = None  # type: ignore
-        # if not isinstance(transformer, NunchakuFluxTransformer2dModel):
-        #     logger.warning("Only NunchakuFluxTransformer2dModel is supported for LoRA")
-        #     return
+        if not hasattr(transformer, "update_lora_params"):
+            logger.warning(
+                f"Nunchaku transformer {type(transformer).__name__} does not support LoRA; skip"
+            )
+            return
 
         # nunchaku: compose_lora -> transformer.update_lora_params
+        # Qwen-Image-2.1 的量化 transformer 要从 safetensors 元数据读取 PEFT scale，单文件时直接传路径。
         try:
-            from nunchaku.lora.common.compose import compose_lora  # type: ignore
+            tuples = _collect_lora_tuples(loras_dir_abs, lora_list, logger=logger)
+            if not tuples:
+                return
+            logger.info(f"Loading nunchaku LoRA: {tuples}")
+            if _is_qwen_image21_nunchaku_transformer(transformer) and len(tuples) == 1:
+                path, weight = tuples[0]
+                transformer.update_lora_params(path, strength=float(weight))
+            else:
+                from nunchaku.lora.common.compose import compose_lora  # type: ignore
 
-            tuples: list[tuple[str, float]] = []
-            for item in lora_list:
-                path = _resolve_lora_path(loras_dir_abs, str(item.get("name", "")))
-                if path and os.path.exists(path):
-                    tuples.append((path, float(item.get("weights", 0.8))))
-                else:
-                    logger.warning(f"LoRA file not found: {path}")
-
-            if tuples:
-                logger.info(f"Loading nunchaku LoRA: {tuples}")
                 composed = compose_lora(tuples)
                 transformer.update_lora_params(composed)
-                try:
-                    setattr(pipe, "_vitoom_evict_after_use", True)
-                    setattr(pipe, "_vitoom_evict_reason", "nunchaku_lora")
-                except Exception:
-                    pass
+            try:
+                setattr(pipe, "_vitoom_evict_after_use", True)
+                setattr(pipe, "_vitoom_evict_reason", "nunchaku_lora")
+            except Exception:
+                pass
         except Exception as e:
             logger.error(f"Failed to load nunchaku LoRA: {e}", exc_info=True)
         return
@@ -200,6 +196,22 @@ def load_loras_into_pipe(pipe: Any, family: str, loras_dir: str, lora_list: list
                 logger.info(f"LoRA adapters activated: {adapters}, weights={weights}")
     except Exception as e:
         logger.error(f"Failed to load diffusers LoRA: {e}", exc_info=True)
+
+
+def _collect_lora_tuples(loras_dir_abs: str, lora_list: list[dict], *, logger: Any) -> list[tuple[str, float]]:
+    tuples: list[tuple[str, float]] = []
+    for item in lora_list:
+        path = _resolve_lora_path(loras_dir_abs, str(item.get("name", "")))
+        if path and os.path.exists(path):
+            tuples.append((path, float(item.get("weights", 0.8))))
+        else:
+            logger.warning(f"LoRA file not found: {path}")
+    return tuples
+
+
+def _is_qwen_image21_nunchaku_transformer(obj: Any) -> bool:
+    cls = getattr(obj, "__class__", None)
+    return (getattr(cls, "__name__", "") or "") == "NunchakuQwenImage21Transformer2DModel"
 
 
 def _is_nunchaku_transformer(obj: Any) -> bool:

@@ -426,13 +426,27 @@ class PipelineLifecycle:
         - Qwen/QwenEdit：优先 transformer.set_offload + sequential offload，并排除 transformer 避免重复 hook
         - 其他：优先 enable_model_cpu_offload，否则 enable_sequential_cpu_offload
         """
-        from common.Constant import MODEL_QWEN, MODEL_QWEN_EDIT
+        from common.Constant import MODEL_KREA2, MODEL_QWEN, MODEL_QWEN_EDIT, MODEL_QWEN_IMAGE_21
 
         mv = (getattr(params, "family", "") or "").lower()
         model_qwen = {m.lower() for m in MODEL_QWEN}
         model_qwen_edit = {m.lower() for m in MODEL_QWEN_EDIT}
+        model_qwen_image21 = {m.lower() for m in MODEL_QWEN_IMAGE_21}
+        model_krea2 = {m.lower() for m in MODEL_KREA2}
 
         try:
+            if mv in model_qwen_image21 or mv in model_krea2:
+                tr = getattr(pipe, "transformer", None)
+                tr_name = getattr(getattr(tr, "__class__", None), "__name__", "")
+                if tr_name in {"NunchakuQwenImage21Transformer2DModel", "NunchakuKrea2Transformer2DModel"}:
+                    # 这两个量化 transformer 不支持内部 block offload，低显存时只把其余组件 sequential offload。
+                    excluded = getattr(pipe, "_exclude_from_cpu_offload", None)
+                    if isinstance(excluded, list) and "transformer" not in excluded:
+                        excluded.append("transformer")
+                    if hasattr(pipe, "enable_sequential_cpu_offload"):
+                        pipe.enable_sequential_cpu_offload()
+                        return True
+
             if mv in model_qwen or mv in model_qwen_edit:
                 tr = getattr(pipe, "transformer", None)
                 # if tr is not None and hasattr(tr, "set_offload"):
