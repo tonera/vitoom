@@ -27,6 +27,8 @@ logger = get_logger(__name__)
 # 尝试导入PIL，如果失败则使用占位符
 from PIL import Image
 
+_JPEG_EXTS = {"jpeg", "jpg"}
+
 # 尝试导入视频处理库
 try:
     import cv2
@@ -60,12 +62,42 @@ class ResultHandler:
         self.storage_base_path = Path(storage_base_path).resolve()
         self.storage_base_path.mkdir(parents=True, exist_ok=True)
 
+    @staticmethod
+    def _image_has_transparency(image: Image.Image) -> bool:
+        if image.mode == "P":
+            return "transparency" in image.info
+        if image.mode not in {"RGBA", "LA"}:
+            return False
+        try:
+            lo, _hi = image.getchannel("A").getextrema()
+        except Exception:
+            return True
+        return int(lo) < 255
+
+    def _adapt_image_to_file_ext(self, file_data: Any, file_ext: str) -> tuple[Any, str]:
+        """
+        JPEG 不能保存 RGBA。
+        有真实透明通道时改存 PNG，完全不透明时转成 RGB 后仍按 JPEG 保存。
+        """
+        ext = str(file_ext or "").lower()
+        if not isinstance(file_data, Image.Image) or ext not in _JPEG_EXTS:
+            return file_data, file_ext
+        if self._image_has_transparency(file_data):
+            logger.info("image has alpha channel; saving as png instead of %s", ext)
+            return file_data, "png"
+        if file_data.mode != "RGB":
+            return file_data.convert("RGB"), file_ext
+        return file_data, file_ext
+
     def _save_file_to_dir(self, file_data: Any, file_name: str, save_dir: Path) -> Path:
         """保存文件到指定目录（用于 local 或 staging）"""
         save_dir.mkdir(parents=True, exist_ok=True)
         file_path = save_dir / file_name
 
         if isinstance(file_data, Image.Image):
+            suffix = file_path.suffix.lower()
+            if suffix in {".jpg", ".jpeg"} and file_data.mode not in {"RGB", "L"}:
+                file_data = file_data.convert("RGB")
             file_data.save(file_path)
         elif isinstance(file_data, str):
             with open(file_path, "w", encoding="utf-8") as f:
@@ -305,6 +337,8 @@ class ResultHandler:
             "mini": "md",
             "translate": "txt",
         }.get(task_type, "bin")
+        if task_type == "image":
+            file_data, file_ext = self._adapt_image_to_file_ext(file_data, file_ext)
         
         # 生成文件名（支持覆盖：用于“长视频分段回传但覆盖同一输出文件”）
         file_name = file_name_override or f"{request_params.task_id}_{index}.{file_ext}"
