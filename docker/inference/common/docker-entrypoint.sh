@@ -273,6 +273,8 @@ config:
     max_tokens: 2048
     trust_remote_code: true
     enable_thinking: false
+    temperature: 0.2
+    repetition_penalty: 1.15
     vllm:
       tensor_parallel_size: 1
       # First-time generation: auto-computed from default 4B ~14GiB VRAM cap and total GPU VRAM; adjust manually for larger models.

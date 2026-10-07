@@ -138,6 +138,14 @@ class TextInferrer(BaseInferrer):
             return {}
         return self.config.config
 
+    @staticmethod
+    def _sampling(policy: Any, temperature: Any, max_tokens: Any) -> tuple[Any, Any, Any]:
+        if policy.service_temperature is not None:
+            temperature = policy.service_temperature
+        if policy.service_max_tokens is not None:
+            max_tokens = policy.service_max_tokens
+        return temperature, max_tokens, policy.repetition_penalty
+
     def _effective_load_name(self, requested: str) -> str:
         if self._fixed_model:
             return self._fixed_model
@@ -317,9 +325,7 @@ class TextInferrer(BaseInferrer):
         runtime = resolve_text_runtime(spec)
         bundle = await self._get_bundle(spec)
         policy = resolve_text_runtime_policy(spec)
-        effective_max_tokens = (
-            policy.service_max_tokens if policy.service_max_tokens is not None else max_tokens
-        )
+        temperature, effective_max_tokens, repetition_penalty = self._sampling(policy, temperature, max_tokens)
         if runtime == "vllm":
             async for item in stream_chat_text(
                 bundle,
@@ -327,6 +333,7 @@ class TextInferrer(BaseInferrer):
                 request_id=request_id,
                 temperature=temperature,
                 max_tokens=effective_max_tokens,
+                repetition_penalty=repetition_penalty,
                 enable_thinking=enable_thinking,
                 top_p=top_p,
                 top_k=top_k,
@@ -344,6 +351,7 @@ class TextInferrer(BaseInferrer):
                 request_id=request_id,
                 temperature=temperature,
                 max_tokens=effective_max_tokens,
+                repetition_penalty=repetition_penalty,
                 enable_thinking=enable_thinking,
                 top_p=top_p,
                 top_k=top_k,
@@ -361,6 +369,7 @@ class TextInferrer(BaseInferrer):
                 request_id=request_id,
                 temperature=temperature,
                 max_tokens=effective_max_tokens,
+                repetition_penalty=repetition_penalty,
                 enable_thinking=enable_thinking,
                 top_p=top_p,
                 top_k=top_k,
@@ -433,9 +442,7 @@ class TextInferrer(BaseInferrer):
         runtime = resolve_text_runtime(spec)
         bundle = await self._get_bundle(spec)
         policy = resolve_text_runtime_policy(spec)
-        effective_max_tokens = (
-            policy.service_max_tokens if policy.service_max_tokens is not None else max_tokens
-        )
+        temperature, effective_max_tokens, repetition_penalty = self._sampling(policy, temperature, max_tokens)
         if runtime == "vllm":
             return await generate_chat_text(
                 bundle,
@@ -443,6 +450,7 @@ class TextInferrer(BaseInferrer):
                 request_id=request_id,
                 temperature=temperature,
                 max_tokens=effective_max_tokens,
+                repetition_penalty=repetition_penalty,
                 enable_thinking=enable_thinking,
                 top_p=top_p,
                 top_k=top_k,
@@ -458,6 +466,7 @@ class TextInferrer(BaseInferrer):
                 request_id=request_id,
                 temperature=temperature,
                 max_tokens=effective_max_tokens,
+                repetition_penalty=repetition_penalty,
                 enable_thinking=enable_thinking,
                 top_p=top_p,
                 top_k=top_k,
@@ -473,6 +482,7 @@ class TextInferrer(BaseInferrer):
                 request_id=request_id,
                 temperature=temperature,
                 max_tokens=effective_max_tokens,
+                repetition_penalty=repetition_penalty,
                 enable_thinking=enable_thinking,
                 top_p=top_p,
                 top_k=top_k,
