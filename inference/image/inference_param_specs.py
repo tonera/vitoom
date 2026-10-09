@@ -719,9 +719,11 @@ class ChromaInferenceParamSpec(InferenceParamSpec):
 @dataclass(frozen=True)
 class AnimaInferenceParamSpec(InferenceParamSpec):
     """
-    Anima（非 diffusers 格式）推理参数：
+    Anima 推理参数：
     - 仅支持 text2img（MK）；不支持 url/img2img、ED/SED 等编辑分支。
-    - 通过额外字段把 anima 的运行时参数透传给 AnimaPipeline.__call__。
+    - diffusers 只有一个 max_sequence_length，qwen3_max_len / t5_max_len 取较大值。
+      flow_shift 写进调度器 shift。
+    - 旧 runtime 仍透传 flow_shift / qwen3_max_len / t5_max_len。
     """
 
     families: set[str] = None  # type: ignore[assignment]
@@ -751,17 +753,26 @@ class AnimaInferenceParamSpec(InferenceParamSpec):
         base.pop("num_images_per_prompt", None)
         base.update({"height": int(height), "width": int(width)})
 
-        # anima 专用可调参数：从 model_cfg.anima 读取（避免污染其它家族字段）
         cfg = getattr(request_params, "model_cfg", None)
         a = cfg.get("anima") if isinstance(cfg, dict) and isinstance(cfg.get("anima"), dict) else {}
-        if isinstance(a, dict):
-            if "flow_shift" in a and a.get("flow_shift") is not None:
-                base["flow_shift"] = float(a.get("flow_shift"))
-            if "qwen3_max_len" in a and a.get("qwen3_max_len") is not None:
-                base["qwen3_max_len"] = int(a.get("qwen3_max_len"))
-            if "t5_max_len" in a and a.get("t5_max_len") is not None:
-                base["t5_max_len"] = int(a.get("t5_max_len"))
+        qwen3_max_len = a.get("qwen3_max_len") if isinstance(a, dict) else None
+        t5_max_len = a.get("t5_max_len") if isinstance(a, dict) else None
+        flow_shift = a.get("flow_shift") if isinstance(a, dict) else None
 
+        if pipeline_class_name in {"AnimaModularPipeline", "AnimaDiffusersPipeline"}:
+            if flow_shift is not None:
+                base["flow_shift"] = float(flow_shift)
+            lengths = [int(v) for v in (qwen3_max_len, t5_max_len) if v is not None]
+            if lengths:
+                base["max_sequence_length"] = max(lengths)
+            return base
+
+        if flow_shift is not None:
+            base["flow_shift"] = float(flow_shift)
+        if qwen3_max_len is not None:
+            base["qwen3_max_len"] = int(qwen3_max_len)
+        if t5_max_len is not None:
+            base["t5_max_len"] = int(t5_max_len)
         return base
 
 

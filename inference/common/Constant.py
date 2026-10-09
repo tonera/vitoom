@@ -26,7 +26,7 @@ MODEL_CHROMA = ['chroma', 'Chroma']
 MODEL_WAN = ['wan', 'Wan', 'Wan-edit', 'Wan-painting', 'Wan-sketch']
 MODEL_WAN_VIDEO = ['wan_video', 'Wan-video']
 
-# Anima（非 diffusers 目录格式；由 third_party/anima_runtime 提供推理）
+# Anima：diffusers 目录走 AnimaModularPipeline；单文件只换 transformer，组件来自 Anima-Base-v1.0-Diffusers
 MODEL_ANIMA = ["anima", "Anima"]
 
 # 补齐历史模型族（新设计下也按“可兼容多值”的列表方式维护）
@@ -55,6 +55,7 @@ FAMILY_ALLOWED_KEYS: dict[str, set[str]] = {
     # zimage / chroma
     "zimage": {"text_encoder", "transformer", "nunchaku_transformer", "vae"},
     "chroma": {"text_encoder", "nunchaku_text_encoder", "transformer", "nunchaku_transformer", "vae"},
+    "anima": {"transformer", "nunchaku_transformer"},
 }
 
 # ===== from_single_file assembly policy =====

@@ -20,6 +20,7 @@ from .pipeline_component_injector import build_component_overrides
 
 logger = get_logger(__name__)
 
+from common.anima_checkpoint import is_anima_diffusers_dir
 from common.model_catalog import get_catalog
 from common.model_catalog.types import PipelineRef
 from common.model_metadata import read_family_name, safetensors_get_shape, safetensors_list_keys
@@ -68,6 +69,10 @@ class PipelineDetector:
             keys = safetensors_list_keys(file_path)
             if not keys:
                 return None
+
+            # Anima 单文件：DiT + llm_adapter，键名是 model.diffusion_model.* 或 net.*
+            if any("llm_adapter." in k for k in keys) and any("adaln_modulation_self_attn" in k for k in keys):
+                return "anima"
 
             # ZImage 特征（必须优先于 Flux，避免被 text_encoders 规则误判）
             # ZImage 的 text_encoder 通常是 Qwen3Model，单文件权重里常见前缀：
@@ -156,8 +161,14 @@ class PipelineDetector:
         return None
 
     @staticmethod
+    def _anima_diffusers_ref() -> PipelineRef:
+        return PipelineRef("image.runtime.anima_diffusers_pipeline", "AnimaDiffusersPipeline")
+
+    @staticmethod
     def _pick_single_file_pipeline_ref(family: str, model_path: Path, *, is_img2img: bool) -> Optional[PipelineRef]:
         fam = to_model_family(family)
+        if fam == "anima":
+            return PipelineDetector._anima_diffusers_ref()
         if fam == "flux2_klein":
             stem = model_path.stem.lower()
             if "-kv" in stem or "_kv" in stem:
@@ -254,6 +265,11 @@ class PipelineDetector:
         except Exception:
             has_anima_manifest = False
 
+        # diffusers 目录（modular_model_index.json）优先于旧 runtime bundle
+        if model_path.is_dir() and is_anima_diffusers_dir(model_path):
+            self.family = "anima"
+            return self._anima_diffusers_ref().resolve()
+
         # 若显式标记为 anima family，或配置/manifest 暗示是 anima，则进入 anima 分支
         if fam == "anima" or backend_pref or has_anima_manifest:
             self.family = "anima"
@@ -265,8 +281,11 @@ class PipelineDetector:
                     raise ValueError("AnimaPipeline default ref missing in catalog")
                 return pref.resolve()
 
+            # 单文件默认走 diffusers。显式 backend=runtime 仍用旧 AnimaPipeline。
             if backend_pref == "runtime":
                 return _runtime_ref()
+            if model_path.is_file():
+                return self._anima_diffusers_ref().resolve()
 
             if backend_pref == "diffusers":
                 # 强制 diffusers：要求 model_index.json 存在且能被 catalog 识别，否则直接报错
