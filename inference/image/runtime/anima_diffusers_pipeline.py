@@ -14,6 +14,38 @@ from common.anima_checkpoint import (
     load_anima_transformer_from_single_file,
     resolve_anima_diffusers_base,
 )
+from common.logger import get_logger
+
+logger = get_logger(__name__)
+
+_SAMPLING_KEYS = (
+    "stochastic_sampling",
+    "use_karras_sigmas",
+    "use_exponential_sigmas",
+    "use_beta_sigmas",
+)
+
+
+def resolve_anima_scheduler(name: str | None) -> dict[str, bool] | None:
+    """把界面采样器名称译成 FlowMatchEulerDiscreteScheduler 的配置。
+
+    返回 None：沿用权重里的调度器配置（未选、Euler，或官方循环没有对应求解器的名称）。
+    返回 dict：在同一类上打开 ancestral 采样和/或 Karras sigma。
+    """
+    item = str(name or "").strip()
+    if not item or item == "Euler":
+        return None
+    tokens = set(item.split())
+    stochastic = "a" in tokens or "SDE" in tokens
+    karras = "Karras" in tokens
+    if not stochastic and not karras:
+        return None
+    return {
+        "stochastic_sampling": stochastic,
+        "use_karras_sigmas": karras,
+        "use_exponential_sigmas": False,
+        "use_beta_sigmas": False,
+    }
 
 _COMPONENT_NAMES = (
     "text_encoder",
@@ -190,6 +222,33 @@ class AnimaDiffusersPipeline:
             return
         scheduler.register_to_config(shift=float(target))
 
+    def _sampling_config(self, scheduler: Any) -> dict[str, bool]:
+        config = getattr(scheduler, "config", None)
+        return {key: bool(getattr(config, key, False)) for key in _SAMPLING_KEYS}
+
+    def _apply_scheduler_name(self, scheduler_name: str | None) -> None:
+        scheduler = getattr(self._pipe, "scheduler", None)
+        if scheduler is None or not hasattr(scheduler, "register_to_config"):
+            return
+        if not hasattr(self, "_anima_base_scheduler_sampling"):
+            self._anima_base_scheduler_sampling = self._sampling_config(scheduler)
+        item = str(scheduler_name or "").strip()
+        overrides = resolve_anima_scheduler(item)
+        if item and item != "Euler" and overrides is None:
+            logger.warning(
+                "Anima schedulerName=%r 没有对应的 flow-matching 求解器，沿用权重里的 FlowMatchEulerDiscreteScheduler",
+                item,
+            )
+        target = overrides if overrides is not None else self._anima_base_scheduler_sampling
+        scheduler.register_to_config(**target)
+        if overrides is not None:
+            logger.info(
+                "Anima schedulerName=%r -> stochastic_sampling=%s use_karras_sigmas=%s",
+                item,
+                overrides["stochastic_sampling"],
+                overrides["use_karras_sigmas"],
+            )
+
     def __call__(
         self,
         prompt: str,
@@ -202,14 +261,21 @@ class AnimaDiffusersPipeline:
         generator: Any = None,
         output_type: str = "pil",
         flow_shift: float | None = None,
+        schedulerName: str | None = None,
         callback_on_step_end: Any = None,
         callback_on_step_end_tensor_inputs: Any = None,
         **kwargs: Any,
     ):
         del callback_on_step_end_tensor_inputs
+        if schedulerName is None:
+            schedulerName = kwargs.pop("scheduler_name", None)
+        else:
+            kwargs.pop("scheduler_name", None)
+        kwargs.pop("schedulerName", None)
         if guidance_scale is not None:
             _apply_guidance(self._pipe, float(guidance_scale))
         self._apply_flow_shift(flow_shift)
+        self._apply_scheduler_name(schedulerName)
 
         call_kwargs: dict[str, Any] = {
             "prompt": prompt,

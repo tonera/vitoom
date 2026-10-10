@@ -3,16 +3,23 @@ from types import SimpleNamespace
 
 from common.model_catalog.types import PipelineRef
 from common.pipeline_component_injector import _nunchaku_diffusers_sibling_dir, _nunchaku_file_precision
-from image.runtime.anima_diffusers_pipeline import AnimaDiffusersPipeline
+from image.runtime.anima_diffusers_pipeline import AnimaDiffusersPipeline, resolve_anima_scheduler
 
 
 class _Scheduler:
     def __init__(self) -> None:
-        self.config = SimpleNamespace(shift=3.0)
+        self.config = SimpleNamespace(
+            shift=3.0,
+            stochastic_sampling=False,
+            use_karras_sigmas=False,
+            use_exponential_sigmas=False,
+            use_beta_sigmas=False,
+        )
         self.steps = 0
 
     def register_to_config(self, **kwargs) -> None:
-        self.config.shift = kwargs["shift"]
+        for key, value in kwargs.items():
+            setattr(self.config, key, value)
 
     def step(self, *args, **kwargs):
         self.steps += 1
@@ -74,6 +81,58 @@ def test_callback_restores_scheduler_step_when_cancelled() -> None:
     assert inner.scheduler.step.__func__ is original.__func__
     inner.scheduler.step(None, 1, None)
     assert inner.scheduler.steps == 1
+
+
+def test_resolve_anima_scheduler_names() -> None:
+    assert resolve_anima_scheduler(None) is None
+    assert resolve_anima_scheduler("Euler") is None
+    assert resolve_anima_scheduler("DDIM") is None
+    assert resolve_anima_scheduler("DPM++ 2M") is None
+    assert resolve_anima_scheduler("UniPC") is None
+    assert resolve_anima_scheduler("qwen_scheduler_lightning") is None
+
+    euler_a = resolve_anima_scheduler("Euler a")
+    assert euler_a is not None
+    assert euler_a["stochastic_sampling"] is True
+    assert euler_a["use_karras_sigmas"] is False
+
+    karras = resolve_anima_scheduler("DPM++ 2M Karras")
+    assert karras is not None
+    assert karras["stochastic_sampling"] is False
+    assert karras["use_karras_sigmas"] is True
+
+    both = resolve_anima_scheduler("DPM++ 2M SDE Karras")
+    assert both is not None
+    assert both["stochastic_sampling"] is True
+    assert both["use_karras_sigmas"] is True
+    assert both["use_exponential_sigmas"] is False
+    assert both["use_beta_sigmas"] is False
+
+    ancestral = resolve_anima_scheduler("DPM2 a")
+    assert ancestral is not None
+    assert ancestral["stochastic_sampling"] is True
+    assert ancestral["use_karras_sigmas"] is False
+
+
+def test_scheduler_name_applies_per_call_and_is_not_forwarded() -> None:
+    inner = _Inner()
+    wrapper = AnimaDiffusersPipeline(inner)
+
+    wrapper("prompt", schedulerName="Euler a", flow_shift=4)
+    assert inner.scheduler.config.stochastic_sampling is True
+    assert inner.scheduler.config.use_karras_sigmas is False
+    assert inner.scheduler.config.shift == 4
+    assert "schedulerName" not in inner.calls[0]
+
+    wrapper("prompt", schedulerName="LMS Karras")
+    assert inner.scheduler.config.stochastic_sampling is False
+    assert inner.scheduler.config.use_karras_sigmas is True
+    assert inner.scheduler.config.shift == 3.0
+
+    wrapper("prompt", schedulerName="DDIM")
+    assert inner.scheduler.config.stochastic_sampling is False
+    assert inner.scheduler.config.use_karras_sigmas is False
+    assert "schedulerName" not in inner.calls[-1]
 
 
 def test_anima_nunchaku_sibling_and_precision(tmp_path: Path) -> None:

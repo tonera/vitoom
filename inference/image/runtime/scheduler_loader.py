@@ -392,6 +392,9 @@ def load_scheduler_from_pipe(pipe: Any, params: InferenceRequestParams):
     # 其它模型（flux/zimage/qwen/...）直接跳过用户的 schedulerName，保持默认 pipeline scheduler。
     try:
         mv = MODEL_REGISTRY.to_family(getattr(params, "family", None))
+        if item and mv == "anima":
+            # Anima 的采样器在 AnimaDiffusersPipeline 里改 FlowMatchEuler 配置，这里不换类。
+            return pipe
         if item and mv != "sdxl":
             logger.debug(
                 f"non-sdxl model ignores schedulerName: family={getattr(params, 'family', None)!r} "

@@ -723,6 +723,7 @@ class AnimaInferenceParamSpec(InferenceParamSpec):
     - 仅支持 text2img（MK）；不支持 url/img2img、ED/SED 等编辑分支。
     - diffusers 只有一个 max_sequence_length，qwen3_max_len / t5_max_len 取较大值。
       flow_shift 写进调度器 shift。
+    - diffusers 把 schedulerName 交给 AnimaDiffusersPipeline，在 FlowMatchEuler 上改采样配置。
     - 旧 runtime 仍透传 flow_shift / qwen3_max_len / t5_max_len。
     """
 
@@ -765,6 +766,9 @@ class AnimaInferenceParamSpec(InferenceParamSpec):
             lengths = [int(v) for v in (qwen3_max_len, t5_max_len) if v is not None]
             if lengths:
                 base["max_sequence_length"] = max(lengths)
+            scheduler_name = str(getattr(request_params, "schedulerName", "") or "").strip()
+            if scheduler_name:
+                base["schedulerName"] = scheduler_name
             return base
 
         if flow_shift is not None:
