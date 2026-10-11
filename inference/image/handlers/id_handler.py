@@ -12,6 +12,7 @@ job_type = ID 的 handler（PuLID identity）
 
 from __future__ import annotations
 
+import inspect
 import time
 from types import MethodType
 from typing import Any, Callable, Optional
@@ -22,6 +23,7 @@ import torch
 
 from common.Constant import MODEL_SDXL
 from common.image_utils import load_image
+from common.task_cancel import TaskCancelledError
 from image.runtime.postprocess_pipeline import apply_postprocess
 from image.runtime.pipeline_release import finish_pipeline_use, resolve_release_targets
 from image.runtime.lora_manager import (
@@ -45,6 +47,7 @@ class IdHandler:
         logger: Any,
         run_blocking: Callable[[Callable[[], Any]], Any],
         check_cancelled: Optional[Callable[[str], Any]] = None,
+        is_task_cancelled: Optional[Callable[[], bool]] = None,
         pipeline_cache: Optional[PipelineCache] = None,
         lifecycle: Optional[Any] = None,
     ):
@@ -56,8 +59,20 @@ class IdHandler:
         self.logger = logger
         self.run_blocking = run_blocking
         self.check_cancelled = check_cancelled
+        self.is_task_cancelled = is_task_cancelled
         self.pipeline_cache = pipeline_cache
         self.lifecycle = lifecycle
+
+    def _raise_if_cancelled(self, task_id: str, stage: str) -> None:
+        if callable(self.is_task_cancelled) and self.is_task_cancelled():
+            raise TaskCancelledError(task_id, stage)
+
+    @staticmethod
+    def _accepts_kwarg(fn: Any, name: str) -> bool:
+        try:
+            return name in inspect.signature(fn).parameters
+        except Exception:
+            return False
 
     def _resolve_pulid_assets(self, *, family: str, load_name: Optional[str]) -> dict[str, str]:
         """
@@ -352,8 +367,18 @@ class IdHandler:
                     else self.seed_manager.initial_seed(params.seed)
                 )
                 generator = self.seed_manager.create_generator(device, seed)
+                stage = f"ID iteration {index + 1}"
+
+                def _sdxl_step_callback(info: Any) -> None:
+                    step_index = info.get("i") if isinstance(info, dict) else None
+                    self._raise_if_cancelled(task_id, f"{stage} step={step_index}")
+
+                def _flux_step_callback(_pipe, step_index, _timestep, callback_kwargs):
+                    self._raise_if_cancelled(task_id, f"{stage} step={step_index}")
+                    return callback_kwargs
 
                 def _run():
+                    self._raise_if_cancelled(task_id, f"before {stage}")
                     with torch.inference_mode():
                         if mv in {m.lower() for m in MODEL_SDXL}:
                             id_np = np.array(id_image.convert("RGB"))
@@ -391,6 +416,7 @@ class IdHandler:
                                 ),
                                 int(getattr(params, "num_inference_steps", 30) or 30),
                                 int(seed),
+                                callback=_sdxl_step_callback,
                             )
                             return images
 
@@ -412,6 +438,9 @@ class IdHandler:
                             },
                             "推理参数(FLUX):",
                         )
+                        flux_kwargs: dict[str, Any] = {}
+                        if self._accepts_kwarg(pipe.__call__, "callback_on_step_end"):
+                            flux_kwargs["callback_on_step_end"] = _flux_step_callback
                         return pipe(
                             prompt,
                             id_image=id_image,
@@ -425,10 +454,12 @@ class IdHandler:
                             generator=generator,
                             width=width,
                             height=height,
+                            **flux_kwargs,
                         )
 
                 start = time.time()
                 result = await self.run_blocking(_run)
+                self._raise_if_cancelled(task_id, f"after {stage}")
                 used = time.time() - start
 
                 if mv in {m.lower() for m in MODEL_SDXL}:
@@ -452,6 +483,8 @@ class IdHandler:
                 # 及时断开对结果对象的引用（某些 pipeline output 可能携带 tensor）
                 result = None
                 generated_image = None
+        except TaskCancelledError:
+            raise
         except Exception as e:
             failed = True
             oom_error = PipelineLifecycle.is_oom_error(e)

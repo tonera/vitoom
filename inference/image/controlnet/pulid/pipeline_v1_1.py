@@ -656,6 +656,7 @@ class PuLIDPipeline:
         guidance_scale=1.2,
         steps=4,
         seed=-1,
+        callback=None,
     ):
 
         # sigmas
@@ -694,7 +695,7 @@ class PuLIDPipeline:
             ),
         )
 
-        latents = self.sampler(self, latents, sigmas, extra_args=sampler_kwargs, disable=False)
+        latents = self.sampler(self, latents, sigmas, extra_args=sampler_kwargs, callback=callback, disable=False)
         latents = latents.to(dtype=self.pipe.vae.dtype, device=self.device) / self.pipe.vae.config.scaling_factor
         images = self.pipe.vae.decode(latents).sample
         images = self.pipe.image_processor.postprocess(images, output_type='pil')

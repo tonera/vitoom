@@ -91,7 +91,7 @@ class ImageInferrer(BaseInferrer):
     async def _check_cancelled(self, task_id: str, stage: str) -> bool:
         if self.task_processor.is_task_cancelled(task_id):
             logger.info(f"Task {task_id} was cancelled {stage}")
-            await self.ws_client.send_task_status(task_id=task_id, status="cancelled")
+            await self.task_processor.report_cancelled(task_id)
             return True
         return False
 
@@ -118,18 +118,22 @@ class ImageInferrer(BaseInferrer):
     async def _task_context(self, task_id: str):
         """
         统一的任务生命周期包装：清理缓存 + 状态上报
-        取消场景直接退出（状态已由取消检查发送）
+        已取消的任务无论正常返回还是异常退出，都以 cancelled 收尾
         """
         try:
             yield
         except Exception as exc:
             await self._cleanup_cache(task_id)
-            if not self.task_processor.is_task_cancelled(task_id):
+            if self.task_processor.is_task_cancelled(task_id):
+                await self.task_processor.report_cancelled(task_id)
+            else:
                 await self._send_task_status(task_id, "failed", error=str(exc))
             raise
         else:
             await self._cleanup_cache(task_id)
-            if not self.task_processor.is_task_cancelled(task_id):
+            if self.task_processor.is_task_cancelled(task_id):
+                await self.task_processor.report_cancelled(task_id)
+            else:
                 await self._send_task_status(task_id, "completed")
 
     async def inference_callback(self, params: InferenceRequestParams) -> Any:

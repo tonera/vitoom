@@ -14,7 +14,7 @@ import asyncio
 import json
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import redis.asyncio as redis
 from redis.exceptions import ConnectionError as RedisConnectionError
@@ -242,6 +242,8 @@ class RedisListIngress:
         message_queue: MessageQueue,
         egress: Optional[Any] = None,
         on_cancel_message: Optional[Any] = None,
+        is_idle: Optional[Callable[[], bool]] = None,
+        pull_lock: Optional[asyncio.Lock] = None,
     ):
         if not cfg.channel:
             raise ValueError("redis.channel is required for RedisListIngress")
@@ -249,6 +251,11 @@ class RedisListIngress:
         self.message_queue = message_queue
         self.egress = egress  # 可选：用于发 queued status（保持与 WS 接入一致）
         self.on_cancel_message = on_cancel_message
+        # 忙时不取任务，让任务留在共享队列里由空闲 worker 领取，队列长度也才准确。
+        # 取消消息和任务在同一个 list：忙时不会被取到，只对还在排队、由空闲 worker 取到的任务有效。
+        # 正在跑的任务要取消，走 WebSocket。
+        self.is_idle = is_idle
+        self._pull_lock = pull_lock or asyncio.Lock()
         brpop_timeout = max(int(cfg.brpop_timeout or 5), 1)
         # 必须大于 BRPOP 服务端超时，避免正常空轮询触发 socket 超时
         self._socket_timeout = float(brpop_timeout + 10)
@@ -297,11 +304,18 @@ class RedisListIngress:
             f"brpop_timeout={self.cfg.brpop_timeout}, socket_timeout={self._socket_timeout}"
         )
         while self._running:
+            if self.is_idle is not None and not self.is_idle():
+                await asyncio.sleep(0.2)
+                continue
             try:
-                item: Optional[Tuple[str, str]] = await self._redis.brpop(
-                    self.cfg.channel,
-                    timeout=self.cfg.brpop_timeout,
-                )
+                async with self._pull_lock:
+                    if self.is_idle is not None and not self.is_idle():
+                        item = None
+                    else:
+                        item = await self._redis.brpop(
+                            self.cfg.channel,
+                            timeout=self.cfg.brpop_timeout,
+                        )
                 if not item:
                     continue
 
@@ -371,7 +385,8 @@ class RedisListIngress:
                 except Exception:
                     logger.info("[REDIS_NORMALIZED_TASK_DATA] tpl_list=<unavailable>")
 
-                # 入队
+                # 入队。锁在 BRPOP 返回后就放开了，任务消息要在下一次 await 之前入队，
+                # 其他入口才会看到本地队列非空，不会再取一个。
                 if msg.get("type") == "cancel" and callable(self.on_cancel_message):
                     try:
                         await self.on_cancel_message(msg)

@@ -59,7 +59,10 @@ class TaskProcessor:
         self.inference_callback = inference_callback
         self._on_queue_change = on_queue_change
         self._current_task_id: Optional[str] = None
+        # 消息已从本地队列取出、尚未写 current_task_id 的这段也算忙，避免入口又去拉任务
+        self._handling = False
         self._cancellation = TaskCancellationRegistry()
+        self._cancel_reported: set[str] = set()
         self._running = False
         self._cache_scan_interval = 30  # 30秒扫描一次缓存目录
         self._last_cache_scan = datetime.now()
@@ -85,6 +88,10 @@ class TaskProcessor:
     def get_current_task_id(self) -> Optional[str]:
         """获取当前正在处理的任务ID"""
         return self._current_task_id
+
+    def is_busy(self) -> bool:
+        """正在处理刚取出的消息，或正在推理。"""
+        return self._handling or self._current_task_id is not None
     
     def is_task_cancelled(self, task_id: str) -> bool:
         """检查任务是否已取消"""
@@ -101,6 +108,15 @@ class TaskProcessor:
     def clear_cancelled_task(self, task_id: str):
         """清除任务的取消标记"""
         self._cancellation.clear(task_id)
+        self._cancel_reported.discard(str(task_id or "").strip())
+
+    async def report_cancelled(self, task_id: str) -> None:
+        """上报 cancelled 终态；同一任务只发一次，多处兜底调用不会重复。"""
+        normalized = str(task_id or "").strip()
+        if not normalized or normalized in self._cancel_reported:
+            return
+        self._cancel_reported.add(normalized)
+        await self.ws_client.send_task_status(task_id=normalized, status="cancelled")
 
     async def handle_cancel_message(self, task_id: str) -> None:
         """旁路处理取消消息，避免依赖串行队列消费。"""
@@ -179,10 +195,7 @@ class TaskProcessor:
         # 2. 检查任务是否已取消
         if self.is_task_cancelled(task_id):
             logger.info(f"Task {task_id} was cancelled, skipping")
-            await self.ws_client.send_task_status(
-                task_id=task_id,
-                status="cancelled"
-            )
+            await self.report_cancelled(task_id)
             self.clear_cancelled_task(task_id)
             return
         
@@ -227,10 +240,7 @@ class TaskProcessor:
         except TaskCancelledError as exc:
             logger.info(f"Task {task_id} cancelled during inference: {exc}")
             if self.is_task_cancelled(task_id):
-                await self.ws_client.send_task_status(
-                    task_id=task_id,
-                    status="cancelled",
-                )
+                await self.report_cancelled(task_id)
         except Exception as e:
             logger.error(f"Error in inference callback for task {task_id}: {e}", exc_info=True)
             # 如果任务没有被取消，更新为failed
@@ -357,9 +367,16 @@ class TaskProcessor:
                 else:
                     # 队列有消息时，从队列获取消息（放到线程池，避免阻塞事件循环），超时1秒
                     message = await asyncio.to_thread(self.message_queue.get, 1.0)
-                    
+
                     if message:
-                        await self.process_message(message)
+                        # 紧挨着取出，中间不 await，入口的 is_idle 不会看到空窗
+                        self._handling = True
+                        self._notify_queue_change()
+                        try:
+                            await self.process_message(message)
+                        finally:
+                            self._handling = False
+                            self._notify_queue_change()
                     # 如果超时返回None，继续循环检查队列
             
             except Exception as e:

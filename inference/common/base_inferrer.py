@@ -185,6 +185,8 @@ class BaseInferrer:
         else:
             self.ws_client = FanoutEgress(egress_clients)
 
+        # 多个 Redis 入口共用，避免同时看到空闲、各取一个任务
+        redis_pull_lock = asyncio.Lock()
         # 再构建 ingresses
         for icfg in ingresses_cfg:
             if not isinstance(icfg, dict):
@@ -199,6 +201,8 @@ class BaseInferrer:
                     message_queue=self.message_queue,
                     egress=self.ws_client,
                     on_cancel_message=self._on_cancel_message,
+                    is_idle=lambda: self.get_queue_length() == 0,
+                    pull_lock=redis_pull_lock,
                 )
                 self._ingresses.append(ingress)
                 self._redis_transports.append(ingress)
@@ -221,7 +225,7 @@ class BaseInferrer:
     
     def get_queue_length(self) -> int:
         depth = self.message_queue.qsize() if self.message_queue else 0
-        busy = 1 if self.task_processor and self.task_processor.get_current_task_id() else 0
+        busy = 1 if self.task_processor and self.task_processor.is_busy() else 0
         return depth + busy
 
     def notify_queue_change(self) -> None:

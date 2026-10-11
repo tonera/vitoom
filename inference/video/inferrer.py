@@ -97,8 +97,7 @@ class VideoInferrer(BaseInferrer):
     async def _check_cancelled(self, task_id: str, stage: str) -> bool:
         if self.task_processor and self.task_processor.is_task_cancelled(task_id):
             logger.info(f"Task {task_id} was cancelled {stage}")
-            if self.ws_client:
-                await self.ws_client.send_task_status(task_id=task_id, status="cancelled")
+            await self.task_processor.report_cancelled(task_id)
             return True
         return False
 
@@ -198,13 +197,17 @@ class VideoInferrer(BaseInferrer):
 
             await handler.run(params, task_id=task_id)
 
-            if not (self.task_processor and self.task_processor.is_task_cancelled(task_id)):
+            if self.task_processor and self.task_processor.is_task_cancelled(task_id):
+                await self.task_processor.report_cancelled(task_id)
+            else:
                 await self._send_task_status(task_id, "completed")
         except TaskCancelledError:
             raise
         except Exception as e:
             logger.error(f"Error in video inference for task {task_id}: {e}", exc_info=True)
-            if not (self.task_processor and self.task_processor.is_task_cancelled(task_id)):
+            if self.task_processor and self.task_processor.is_task_cancelled(task_id):
+                await self.task_processor.report_cancelled(task_id)
+            else:
                 await self._send_task_status(task_id, "failed", error=str(e))
             raise
 
