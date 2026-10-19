@@ -547,7 +547,11 @@ class Flux3KleinInferenceParamSpec(InferenceParamSpec):
 
     def __post_init__(self):
         object.__setattr__(self, "families", {"flux3_klein"})
-        object.__setattr__(self, "pipeline_class_names", {"Flux3KleinPipeline", "Flux3ModularPipeline"})
+        object.__setattr__(
+            self,
+            "pipeline_class_names",
+            {"Flux3KleinPipeline", "Flux3ModularPipeline", "Flux3DistilledModularPipeline"},
+        )
 
     def build(
         self,

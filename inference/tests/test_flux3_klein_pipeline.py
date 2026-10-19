@@ -50,7 +50,7 @@ def test_modular_index_uses_catalog(tmp_path: Path) -> None:
     model_dir = tmp_path / "flux-3-image-klein-nunchaku"
     model_dir.mkdir()
     (model_dir / "modular_model_index.json").write_text(
-        '{"_class_name": "ModularPipeline", "_blocks_class_name": "Flux3AutoBlocks"}',
+        '{"_class_name": "Flux3DistilledModularPipeline"}',
         encoding="utf-8",
     )
     from common.pipeline_detector import PipelineDetector

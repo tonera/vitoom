@@ -15,6 +15,10 @@ SPEC = ModelFamilySpec(
             family="flux3_klein",
             pipeline_text2img=_PIPELINE,
         ),
+        "Flux3DistilledModularPipeline": ModelIndexRule(
+            family="flux3_klein",
+            pipeline_text2img=_PIPELINE,
+        ),
         "Flux3AutoBlocks": ModelIndexRule(
             family="flux3_klein",
             pipeline_text2img=_PIPELINE,
