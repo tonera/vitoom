@@ -112,6 +112,7 @@ def upsample(
     prompt: str,
     images: list[Any],
     max_new_tokens: int,
+    system_prompt: str | None = None,
     cancel_event: Event | None = None,
     task_id: str = "",
 ) -> tuple[str, int, int, str]:
@@ -124,7 +125,7 @@ def upsample(
     if cancel_event is not None and cancel_event.is_set():
         raise TaskCancelledError(task_id, "before upsample")
 
-    messages = _build_messages(bundle, prompt=prompt, images=images)
+    messages = _build_messages(bundle, prompt=prompt, images=images, system_prompt=system_prompt)
     inputs = bundle.processor.apply_chat_template(
         messages,
         add_generation_prompt=True,
@@ -178,20 +179,35 @@ def release_upsampler_bundle(bundle: PromptUpsamplerBundle | None) -> None:
         gc.collect()
 
 
-def _build_messages(bundle: PromptUpsamplerBundle, *, prompt: str, images: list[Any]) -> list[dict[str, Any]]:
-    if images:
+def _build_messages(
+    bundle: PromptUpsamplerBundle,
+    *,
+    prompt: str,
+    images: list[Any],
+    system_prompt: str | None = None,
+) -> list[dict[str, Any]]:
+    custom = str(system_prompt or "").strip()
+    if custom:
+        system = custom
+        text = prompt
+    elif images:
+        system = bundle.system_prompts["i2i"]
         text = (
             "Reference images follow in order (the first image, the second image, ...).\n"
             f"User request: {prompt}\nOutput the caption."
         )
-        content = [{"type": "image", "image": image} for image in images] + [{"type": "text", "text": text}]
-        return [
-            {"role": "system", "content": bundle.system_prompts["i2i"]},
-            {"role": "user", "content": content},
-        ]
+    else:
+        system = bundle.system_prompts["t2i"]
+        text = prompt
+    if images:
+        content: str | list[dict[str, Any]] = [
+            {"type": "image", "image": image} for image in images
+        ] + [{"type": "text", "text": text}]
+    else:
+        content = text
     return [
-        {"role": "system", "content": bundle.system_prompts["t2i"]},
-        {"role": "user", "content": prompt},
+        {"role": "system", "content": system},
+        {"role": "user", "content": content},
     ]
 
 

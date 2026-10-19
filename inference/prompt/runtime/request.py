@@ -6,6 +6,7 @@ from typing import Any
 
 DEFAULT_MAX_NEW_TOKENS = 3584
 MAX_IMAGES = 10
+MAX_SYSTEM_PROMPT_CHARS = 8000
 
 
 class PromptRequestError(ValueError):
@@ -24,6 +25,21 @@ def resolve_max_new_tokens(raw: Any, *, default: int = DEFAULT_MAX_NEW_TOKENS, c
     if value < 1:
         raise PromptRequestError("max_tokens must be at least 1")
     return min(value, limit)
+
+
+def resolve_system_prompt(raw: Any, *, max_chars: int = MAX_SYSTEM_PROMPT_CHARS) -> str | None:
+    """只认调用方传入的系统提示词字符串。空值表示继续用内置 t2i / i2i。"""
+    if raw is None or raw == "":
+        return None
+    if not isinstance(raw, str):
+        raise PromptRequestError("system_prompt must be a string")
+    text = raw.strip()
+    if not text:
+        return None
+    limit = max(1, int(max_chars or MAX_SYSTEM_PROMPT_CHARS))
+    if len(text) > limit:
+        raise PromptRequestError(f"system_prompt must be at most {limit} characters")
+    return text
 
 
 def resolve_upsample_input(

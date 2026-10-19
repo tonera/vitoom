@@ -20,6 +20,7 @@ from prompt.runtime.request import (
     MAX_IMAGES,
     PromptRequestError,
     resolve_max_new_tokens,
+    resolve_system_prompt,
     resolve_upsample_input,
 )
 from prompt.runtime.upsampler import (
@@ -149,6 +150,7 @@ class PromptInferrer(BaseInferrer):
             default=self._max_new_tokens,
             cap=self._max_new_tokens,
         )
+        system_prompt = resolve_system_prompt(getattr(params, "system_prompt", None))
         cache_key = self._cache_key(load_name)
         bundle = None
         failed = False
@@ -158,12 +160,13 @@ class PromptInferrer(BaseInferrer):
                 create_fn=lambda: self._load_bundle(load_name),
             )
             logger.info(
-                "[prompt] bundle %s key=%s task_id=%s images=%s max_new_tokens=%s",
+                "[prompt] bundle %s key=%s task_id=%s images=%s max_new_tokens=%s system=%s",
                 "hit" if cache_hit else "load",
                 cache_key,
                 task_id,
                 len(sources),
                 max_new_tokens,
+                "custom" if system_prompt else "builtin",
             )
             if self._check_cancelled(task_id):
                 raise TaskCancelledError(task_id, "after prompt bundle")
@@ -186,6 +189,7 @@ class PromptInferrer(BaseInferrer):
                 prompt=text,
                 images=images,
                 max_new_tokens=max_new_tokens,
+                system_prompt=system_prompt,
                 cancel_event=self._cancel_event(task_id),
                 task_id=task_id,
             )

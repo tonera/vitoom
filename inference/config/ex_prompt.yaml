@@ -30,4 +30,6 @@ config:
 #   flux-3-image-klein-pup-nunchaku/ 下的 processor
 #   flux-3-image-klein-pup-nunchaku/svdq-int4-flux-3-image-klein-pup-nunchaku.safetensors
 # 量化权重也可以放在 weights_dir/flux-3-image-klein-pup-nunchaku/ 下。
-# 系统提示词使用 inference/prompt/runtime/system_prompts.json，不读模型目录里的同名文件。
+# 未传 payload.system_prompt 时，系统提示词使用 inference/prompt/runtime/system_prompts.json
+# （无图 t2i，有图 i2i），不读模型目录里的同名文件。
+# 传入 payload.system_prompt 时用调用方文本替换系统提示词，用户原文不再包扩写说明。

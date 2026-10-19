@@ -224,6 +224,10 @@ class InferenceRequestParams(BaseModel):
         default=None,
         description="mini/translate 扩展参数；OCR: task/schema；translate: source_lang/target_lang",
     )
+    system_prompt: Optional[str] = Field(
+        default=None,
+        description="prompt 扩写的自定义系统提示词。仅读取 payload.system_prompt；空则使用内置 t2i/i2i",
+    )
     
     @field_validator('tpl_list', mode='before')
     @classmethod
@@ -521,6 +525,10 @@ class InferenceRequestParams(BaseModel):
                         extract[key] = params.get(key)
                 if extract:
                     data["extract"] = extract
+                raw_system_prompt = params.get("system_prompt")
+                if raw_system_prompt is not None and not isinstance(raw_system_prompt, str):
+                    raise ValueError("system_prompt must be a string")
+                data["system_prompt"] = raw_system_prompt
         
         # ===== family：统一使用 model_catalog.family =====
         raw = ""
