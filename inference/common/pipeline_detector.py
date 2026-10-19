@@ -20,7 +20,6 @@ from .pipeline_component_injector import build_component_overrides
 
 logger = get_logger(__name__)
 
-from common.anima_checkpoint import is_anima_diffusers_dir
 from common.model_catalog import get_catalog
 from common.model_catalog.types import PipelineRef
 from common.model_metadata import read_family_name, safetensors_get_shape, safetensors_list_keys
@@ -161,14 +160,8 @@ class PipelineDetector:
         return None
 
     @staticmethod
-    def _anima_diffusers_ref() -> PipelineRef:
-        return PipelineRef("image.runtime.anima_diffusers_pipeline", "AnimaDiffusersPipeline")
-
-    @staticmethod
     def _pick_single_file_pipeline_ref(family: str, model_path: Path, *, is_img2img: bool) -> Optional[PipelineRef]:
         fam = to_model_family(family)
-        if fam == "anima":
-            return PipelineDetector._anima_diffusers_ref()
         if fam == "flux2_klein":
             stem = model_path.stem.lower()
             if "-kv" in stem or "_kv" in stem:
@@ -183,11 +176,11 @@ class PipelineDetector:
         返回 diffusers 的 Pipeline 类对象，未识别则抛 ValueError。
         """
         model_path = self._resolve_model_path(params.load_name)
-        self.family = self._detect_model_type_from_file_keys(model_path)
-        is_img2img = bool(params.url)
-
-        fam = to_model_family(self.family)
+        detected = to_model_family(self._detect_model_type_from_file_keys(model_path))
+        explicit = to_model_family(getattr(params, "family", None))
+        fam = detected or explicit
         self.family = fam
+        is_img2img = bool(params.url)
         pref = self._pick_single_file_pipeline_ref(fam, model_path, is_img2img=is_img2img)
         if pref is None:
             raise ValueError(f"Unsupported or undetected model family for file: {model_path} (family={fam})")
@@ -198,8 +191,8 @@ class PipelineDetector:
         读取 model_index.json 的 _class_name 映射到具体 Pipeline 类。
         """
         model_dir = self._resolve_model_path(params.load_name)
-        model_index_path = model_dir / "model_index.json"
-        if not model_index_path.exists():
+        has_index = (model_dir / "model_index.json").is_file() or (model_dir / "modular_model_index.json").is_file()
+        if not has_index:
             raise ValueError(f"model_index.json not found in {model_dir}")
 
         try:
@@ -235,71 +228,6 @@ class PipelineDetector:
         """
         model_path = self._resolve_model_path(params.load_name)
 
-        # ===== Anima: dual-backend (runtime/diffusers/auto) =====
-        # 长远目标：未来官方推出 diffusers pipeline 时，尽量只需更新 model_families/anima.py 的 model_index_rules，
-        # 而不需要再改 detector / injector / param spec。
-        try:
-            fam = to_model_family(getattr(params, "family", None))
-        except Exception:
-            fam = ""
-
-        # 读取 backend 偏好（可选）：params.model_cfg.anima.backend = "auto" | "runtime" | "diffusers"
-        backend_pref = ""
-        try:
-            cfg = getattr(params, "model_cfg", None)
-            if isinstance(cfg, dict) and isinstance(cfg.get("anima"), dict):
-                backend_pref = str(cfg["anima"].get("backend") or "").strip().lower()
-        except Exception:
-            backend_pref = ""
-        if backend_pref not in {"", "auto", "runtime", "diffusers"}:
-            backend_pref = ""
-
-        has_anima_manifest = False
-        try:
-            if model_path.is_dir():
-                has_anima_manifest = bool(
-                    (model_path / "anima_paths.json").is_file()
-                    or (model_path / "anime_paths.json").is_file()  # 兼容常见拼写误差
-                    or (model_path / "anima.json").is_file()
-                )
-        except Exception:
-            has_anima_manifest = False
-
-        # diffusers 目录（modular_model_index.json）优先于旧 runtime bundle
-        if model_path.is_dir() and is_anima_diffusers_dir(model_path):
-            self.family = "anima"
-            return self._anima_diffusers_ref().resolve()
-
-        # 若显式标记为 anima family，或配置/manifest 暗示是 anima，则进入 anima 分支
-        if fam == "anima" or backend_pref or has_anima_manifest:
-            self.family = "anima"
-
-            def _runtime_ref():
-                cat = get_catalog()
-                pref = cat.default_pipeline_ref("anima", is_img2img=False)
-                if pref is None:
-                    raise ValueError("AnimaPipeline default ref missing in catalog")
-                return pref.resolve()
-
-            # 单文件默认走 diffusers。显式 backend=runtime 仍用旧 AnimaPipeline。
-            if backend_pref == "runtime":
-                return _runtime_ref()
-            if model_path.is_file():
-                return self._anima_diffusers_ref().resolve()
-
-            if backend_pref == "diffusers":
-                # 强制 diffusers：要求 model_index.json 存在且能被 catalog 识别，否则直接报错
-                return self.from_model_index(params)
-
-            # auto：优先 diffusers（若 model_index.json 存在且 catalog 支持），否则回退 runtime
-            try:
-                if model_path.is_dir() and (model_path / "model_index.json").is_file():
-                    return self.from_model_index(params)
-            except Exception:
-                pass
-            # 回退：manifest 或显式 family=anima 时，走 runtime（paths 可来自 manifest 或 model_config 注入）
-            return _runtime_ref()
-
         logger.debug(
             f"[get_pipeline] 检测模型路径: {model_path}, "
             f"is_file={model_path.is_file()}, suffix={model_path.suffix if model_path.is_file() else 'N/A'}"
@@ -309,6 +237,12 @@ class PipelineDetector:
                 pipeline_cls = self.from_file(params)
                 logger.debug(f"[get_pipeline] 从文件检测，family={self.family}")
                 return pipeline_cls
+            has_index = (model_path / "model_index.json").is_file() or (model_path / "modular_model_index.json").is_file()
+            if model_path.is_dir() and not has_index and any(
+                (model_path / name).is_file() for name in ("anima_paths.json", "anime_paths.json", "anima.json")
+            ):
+                self.family = "anima"
+                return PipelineRef("third_party.anima_runtime.pipeline", "AnimaPipeline").resolve()
             pipeline_cls = self.from_model_index(params)
             logger.debug(f"[get_pipeline] 从model_index检测，family={self.family}")
             return pipeline_cls

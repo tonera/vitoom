@@ -20,6 +20,8 @@ MODEL_QWEN_IMAGE_21 = ['qwen.image21', 'qwen-image-2.1', 'Qwen-Image-2.1', 'Qwen
 MODEL_KREA2 = ['krea2', 'krea-2-turbo', 'Krea-2-Turbo', 'Krea2']
 MODEL_FLUX2 = ['flux2', 'Flux.2 D']
 MODEL_FLUX2_KLEIN = ['flux2_klein', 'Flux.2 Klein']
+# FLUX.3 Image Klein：同一 ModularPipeline 支持文生图和最多 10 张参考图编辑。蒸馏权重无 CFG。
+MODEL_FLUX3_KLEIN = ['flux3_klein', 'Flux.3 Klein', 'FLUX.3 Image Klein', 'flux-3-image-klein']
 MODEL_Z_IMAGE = ['zimage', 'ZImageTurbo','z-image','z-image-turbo']
 MODEL_FLUX_KONTEXT = ['flux_kontext', 'Flux.1 Kontext']
 MODEL_CHROMA = ['chroma', 'Chroma']
@@ -47,6 +49,7 @@ FAMILY_ALLOWED_KEYS: dict[str, set[str]] = {
     # flux2
     "flux2": {"text_encoder", "nunchaku_text_encoder", "transformer", "nunchaku_transformer", "vae"},
     "flux2_klein": {"text_encoder", "nunchaku_text_encoder", "transformer", "nunchaku_transformer", "vae"},
+    "flux3_klein": {"text_encoder", "nunchaku_text_encoder", "transformer", "nunchaku_transformer", "vae"},
     # qwen
     "qwen": {"text_encoder", "nunchaku_text_encoder", "transformer", "nunchaku_transformer", "vae"},
     "qwen.edit": {"text_encoder", "nunchaku_text_encoder", "transformer", "nunchaku_transformer", "vae"},

@@ -7,13 +7,20 @@ from common.model_catalog.types import ModelFamilySpec, ModelIndexRule, Pipeline
 SPEC = ModelFamilySpec(
     family="anima",
     aliases={m.lower() for m in MODEL_ANIMA},
-    # 旧 bundle（anima_paths.json）仍走 runtime。diffusers 目录和单文件由 detector 改走 AnimaDiffusersPipeline。
-    default_text2img=PipelineRef("third_party.anima_runtime.pipeline", "AnimaPipeline"),
+    # 单文件走 AnimaDiffusersPipeline。旧 bundle 的 model_index 类名仍是 AnimaPipeline。
+    default_text2img=PipelineRef("image.runtime.anima_diffusers_pipeline", "AnimaDiffusersPipeline"),
     model_index_rules={
-        # 允许未来给 Anima bundle 放一个轻量 model_index.json（不要求 diffusers 组件齐全）
         "AnimaPipeline": ModelIndexRule(
             family="anima",
             pipeline_text2img=PipelineRef("third_party.anima_runtime.pipeline", "AnimaPipeline"),
+        ),
+        "AnimaModularPipeline": ModelIndexRule(
+            family="anima",
+            pipeline_text2img=PipelineRef("image.runtime.anima_diffusers_pipeline", "AnimaDiffusersPipeline"),
+        ),
+        "AnimaAutoBlocks": ModelIndexRule(
+            family="anima",
+            pipeline_text2img=PipelineRef("image.runtime.anima_diffusers_pipeline", "AnimaDiffusersPipeline"),
         ),
     },
 )

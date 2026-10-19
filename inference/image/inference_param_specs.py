@@ -534,6 +534,54 @@ class QwenImage21InferenceParamSpec(InferenceParamSpec):
 
 
 @dataclass(frozen=True)
+class Flux3KleinInferenceParamSpec(InferenceParamSpec):
+    """
+    FLUX.3 Image Klein 蒸馏权重：
+    - 文生图、url 图生图、编辑任务共用一个 pipeline。编辑最多 10 张参考图。
+    - 不支持 POSE。没有 CFG，不传 guidance_scale / negative_prompt。
+    - 不在这里做 prompt upsampling。
+    """
+
+    families: set[str] = None  # type: ignore[assignment]
+    pipeline_class_names: set[str] = None  # type: ignore[assignment]
+
+    def __post_init__(self):
+        object.__setattr__(self, "families", {"flux3_klein"})
+        object.__setattr__(self, "pipeline_class_names", {"Flux3KleinPipeline", "Flux3ModularPipeline"})
+
+    def build(
+        self,
+        *,
+        pipeline_class_name: str,
+        request_params: InferenceRequestParams,
+        base: Dict[str, Any],
+        width: int,
+        height: int,
+        pipeline_instance: Any,
+    ) -> Dict[str, Any]:
+        del pipeline_class_name, pipeline_instance
+        if request_params.job_type == JT_POSE:
+            raise ValueError("flux3_klein does not support POSE")
+
+        base.pop("negative_prompt", None)
+        base.pop("guidance_scale", None)
+        base.update({"height": int(height), "width": int(width)})
+
+        if request_params.job_type == JT_ED:
+            images = load_images_from_list(request_params.tpl_list or [])
+            if not images:
+                raise ValueError(f"{request_params.job_type} requires non-empty tpl_list with loadable images")
+            if len(images) > 10:
+                raise ValueError("flux3_klein supports at most 10 reference images")
+            base["image"] = images[0] if len(images) == 1 else images
+        elif request_params.url:
+            image = load_image(request_params.url)
+            if image:
+                base["image"] = image
+        return base
+
+
+@dataclass(frozen=True)
 class Krea2InferenceParamSpec(InferenceParamSpec):
     """Krea 2 Turbo：8 步蒸馏文生图。guidance_scale 大于 0 会打开 CFG，必须保持 0。"""
 

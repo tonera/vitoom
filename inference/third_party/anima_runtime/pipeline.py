@@ -98,8 +98,8 @@ class AnimaPipeline:
         if anima_paths is None:
             raise ValueError(
                 "AnimaPipeline requires `anima_paths`.\n"
-                "- 推荐：在模型目录放置 `anima_paths.json`（或 `anime_paths.json` / `anima.json`）\n"
-                "- 或者：通过 request.model_config 传入 anima_paths（由组件注入层转换并透传）。"
+                "在模型目录放置 `anima_paths.json`（或 `anime_paths.json` / `anima.json`），"
+                "或在 from_pretrained 传入 anima_paths。"
             )
         paths = _parse_anima_paths(anima_paths, root=root_dir)
         dit_override = str(kwargs.get("dit_path") or "").strip()

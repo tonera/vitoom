@@ -345,10 +345,11 @@ def _nunchaku_diffusers_sibling_dir(ctx: ComponentContext, model_dir: Path) -> O
 
 
 def _family_export_transformer_candidates(ctx: ComponentContext) -> list[Path]:
-    """Krea 2 / Qwen-Image-2.1 的 deepcompressor 导出目录（相对 models_dir / weights_dir）。"""
+    """量化主权重目录（相对 models_dir / weights_dir）。"""
     subdirs = {
         "qwen.image21": "Qwen-Image-2.1-Nunchaku",
         "krea2": "Krea-2-Turbo-Nunchaku",
+        "flux3_klein": "flux-3-image-klein-nunchaku",
     }
     subdir = subdirs.get(ctx.family)
     if not subdir:
@@ -368,7 +369,7 @@ def _family_export_transformer_candidates(ctx: ComponentContext) -> list[Path]:
 
 
 def _default_nunchaku_main_component_candidates(ctx: ComponentContext) -> list[Path]:
-    if ctx.family in {"krea2", "qwen.image21"}:
+    if ctx.family in {"krea2", "qwen.image21", "flux3_klein"}:
         return _family_export_transformer_candidates(ctx)
 
     load_names = _load_name_candidates_for_auto_detect(ctx)
@@ -490,6 +491,8 @@ def _default_nunchaku_text_encoder_candidates(ctx: ComponentContext) -> list[Pat
     encoder_subdirs = {
         "qwen.image21": "Qwen3-VL-8B-Instruct-Nunchaku",
         "krea2": "Qwen3-VL-4B-Instruct-Nunchaku",
+        # Klein 的文本编码器是 Qwen3-VL-4B，和 Krea 2 共用这一套量化权重目录。
+        "flux3_klein": "Qwen3-VL-4B-Instruct-Nunchaku",
     }
     encoder_subdir = encoder_subdirs.get(fam)
     if encoder_subdir:
@@ -849,6 +852,13 @@ def _load_nunchaku_transformer_krea2(ctx: ComponentContext, ckpt: Path) -> Any:
     return NunchakuKrea2Transformer2DModel.from_pretrained(str(ckpt), **_nunchaku_cuda_load_kwargs(ctx))
 
 
+def _load_nunchaku_transformer_flux3(ctx: ComponentContext, ckpt: Path) -> Any:
+    from nunchaku import NunchakuFlux3Transformer2DModel  # type: ignore
+
+    ctx.logger.info(f"[inject] flux3_klein nunchaku_transformer: {ckpt}")
+    return NunchakuFlux3Transformer2DModel.from_pretrained(str(ckpt), **_nunchaku_cuda_load_kwargs(ctx))
+
+
 def _load_nunchaku_qwen3vl_encoder(ctx: ComponentContext, ckpt: Path, *, key: str) -> Any:
     from nunchaku import NunchakuQwen3VLEncoderModel  # type: ignore
 
@@ -868,6 +878,7 @@ NUNCHAKU_TRANSFORMER_LOADER: dict[str, Callable[[ComponentContext, Path], Any]] 
     "zimage": _load_nunchaku_transformer_zimage,
     "chroma": _load_nunchaku_transformer_chroma,
     "anima": _load_nunchaku_transformer_anima,
+    "flux3_klein": _load_nunchaku_transformer_flux3,
 }
 
 
@@ -880,10 +891,11 @@ NUNCHAKU_TEXT_ENCODER_SLOT: dict[str, str] = {
     "qwen.edit": "text_encoder",
     "qwen.image21": "text_encoder",
     "krea2": "text_encoder",
+    "flux3_klein": "text_encoder",
     "chroma": "text_encoder",
 }
 
-NUNCHAKU_QWEN3VL_ENCODER_FAMILIES = frozenset({"qwen.image21", "krea2"})
+NUNCHAKU_QWEN3VL_ENCODER_FAMILIES = frozenset({"qwen.image21", "krea2", "flux3_klein"})
 
 
 def _apply_auto_nunchaku_overrides(
@@ -1040,6 +1052,103 @@ def _single_file_config_dir_for_family(family: str) -> Optional[str]:
     return str(cfg_dir)
 
 
+_ANIMA_RUNTIME_KEYS = (
+    "text_device",
+    "text_dtype",
+    "attn_mode",
+    "split_attn",
+    "vae_spatial_chunk_size",
+    "vae_disable_cache",
+    "enable_block_swap",
+    "dit_loading_device",
+    "qwen3_loading_device",
+    "pretouch_cpu_tensors_before_to_cuda",
+)
+
+
+def _looks_like_anima_paths(data: dict) -> bool:
+    if any(key in data for key in ("dit_path", "vae_path", "t5_tokenizer_dir")):
+        return True
+    qwen3 = data.get("qwen3")
+    return isinstance(qwen3, dict) and any(
+        key in qwen3 for key in ("model_or_weights_path", "config_dir", "tokenizer_dir")
+    )
+
+
+def _anima_runtime_overrides(
+    *,
+    model_config: Optional[dict],
+    inference_config: Any,
+    device_plan: Any,
+    model_info: Any,
+) -> Optional[ComponentOverrides]:
+    """旧 bundle 才注入路径和加载参数。diffusers 目录与单文件继续走后面的量化发现。"""
+    repo = Path(str(getattr(model_info, "repo_id", "") or "")).expanduser()
+    if str(getattr(model_info, "method", "") or "") == "from_single_file" or repo.is_file():
+        return None
+    root = repo if repo.is_dir() else repo.parent
+    from common.anima_checkpoint import is_anima_diffusers_dir
+
+    if root.is_dir() and is_anima_diffusers_dir(root):
+        return None
+
+    anima_cfg: dict = {}
+    paths_cfg: dict = {}
+    if isinstance(model_config, dict):
+        if isinstance(model_config.get("anima"), dict):
+            anima_cfg = dict(model_config["anima"])
+        if isinstance(model_config.get("anima_paths"), dict):
+            paths_cfg = dict(model_config["anima_paths"])
+    raw_paths = paths_cfg if _looks_like_anima_paths(paths_cfg) else (anima_cfg if _looks_like_anima_paths(anima_cfg) else {})
+
+    overrides: ComponentOverrides = {"device": str(getattr(device_plan, "device", "") or "cuda")}
+    sources = {"device": "device_plan"}
+    component_sig: dict[str, str] = {}
+    if raw_paths:
+        qwen3 = raw_paths.get("qwen3")
+        if not isinstance(qwen3, dict):
+            raise ValueError("model_config.anima.qwen3 must be a dict")
+        models_dir = str(getattr(inference_config, "models_dir", "") or "")
+        weights_dir = str(getattr(inference_config, "weights_dir", "") or "")
+
+        def resolve(value: object) -> str:
+            raw = str(value or "").strip()
+            if not raw:
+                raise ValueError("empty path")
+            path = Path(raw)
+            if path.is_absolute():
+                return str(path)
+            local = root / path
+            if local.exists():
+                return str(local)
+            return str(_resolve_component_path(raw, models_dir=models_dir, weights_dir=weights_dir))
+
+        paths = {
+            "dit_path": resolve(raw_paths.get("dit_path")),
+            "vae_path": resolve(raw_paths.get("vae_path")),
+            "t5_tokenizer_dir": resolve(raw_paths.get("t5_tokenizer_dir")),
+            "qwen3": {
+                "model_or_weights_path": resolve(qwen3.get("model_or_weights_path")),
+                "config_dir": resolve(qwen3.get("config_dir")),
+                "tokenizer_dir": resolve(qwen3.get("tokenizer_dir")),
+            },
+        }
+        overrides["anima_paths"] = paths
+        sources["anima_paths"] = "model_config"
+        component_sig["anima_paths"] = paths["dit_path"]
+    for key in _ANIMA_RUNTIME_KEYS:
+        value = anima_cfg.get(key)
+        if value is None:
+            continue
+        overrides[key] = value
+        sources[key] = "model_config(anima)"
+        component_sig[key] = str(value)
+    overrides["__component_sources"] = sources
+    if component_sig:
+        overrides["__component_sig"] = component_sig
+    return overrides
+
+
 def build_component_overrides(
     *,
     family: str,
@@ -1057,153 +1166,15 @@ def build_component_overrides(
     sources: dict[str, str] = {}
     component_sig: dict[str, str] = {}
 
-    # ===== Anima =====
-    # diffusers 目录 / 单文件走后面的 nunchaku 与 AnimaDiffusersPipeline。
-    # 只有旧的 anima_paths bundle 才在这里提前返回 runtime 参数。
     if fam == "anima":
-        try:
-            repo_id = str(getattr(model_info, "repo_id", "") or "")
-            root = Path(repo_id).expanduser()
-            root_dir = root if root.is_dir() else root.parent
-        except Exception:
-            root = Path(".")
-            root_dir = Path(".")
-
-        from common.anima_checkpoint import is_anima_diffusers_dir
-
-        is_single_file = str(getattr(model_info, "method", "") or "") == "from_single_file" or root.is_file()
-        is_diffusers_dir = root.is_dir() and is_anima_diffusers_dir(root)
-        backend_pref = ""
-        try:
-            if isinstance(model_config, dict) and isinstance(model_config.get("anima"), dict):
-                backend_pref = str(model_config["anima"].get("backend") or "").strip().lower()
-        except Exception:
-            backend_pref = ""
-        if backend_pref not in {"", "auto", "runtime", "diffusers"}:
-            backend_pref = ""
-
-        # diffusers 目录走后面的装配。单文件默认也走 diffusers，显式 backend=runtime 才回旧 bundle。
-        # fast_mode 保留，量化 transformer 由后面的 nunchaku 发现注入。
-        if not (is_diffusers_dir or (is_single_file and backend_pref != "runtime")):
-
-            has_manifest = False
-            try:
-                has_manifest = bool(
-                    (root_dir / "anima_paths.json").is_file()
-                    or (root_dir / "anime_paths.json").is_file()  # 兼容常见拼写误差
-                    or (root_dir / "anima.json").is_file()
-                )
-            except Exception:
-                has_manifest = False
-
-            def _resolve_rel_to_model_root(v: object) -> str:
-                raw = str(v or "").strip()
-                if not raw:
-                    raise ValueError("empty path")
-                p = Path(raw)
-                if p.is_absolute():
-                    return str(p)
-                cand = root_dir / p
-                if cand.exists():
-                    return str(cand)
-                # 兜底：沿用通用规则（models_dir / weights_dir）
-                return str(_resolve_component_path(raw, models_dir=str(getattr(inference_config, "models_dir", "") or ""), weights_dir=str(getattr(inference_config, "weights_dir", "") or "")))
-
-            # paths：允许两种写法
-            # 1) model_config.anima = {dit_path, vae_path, qwen3:{...}, t5_tokenizer_dir, ...}
-            # 2) model_config.anima_paths = {dit_path, vae_path, qwen3:{...}, t5_tokenizer_dir}
-            anima_cfg: dict = {}
-            anima_paths_cfg: dict = {}
-            if isinstance(model_config, dict):
-                if isinstance(model_config.get("anima"), dict):
-                    anima_cfg = dict(model_config.get("anima") or {})
-                if isinstance(model_config.get("anima_paths"), dict):
-                    anima_paths_cfg = dict(model_config.get("anima_paths") or {})
-
-            def _looks_like_paths(d: dict) -> bool:
-                if not isinstance(d, dict) or not d:
-                    return False
-                # 最少包含一个关键路径字段，才认为它是“paths 配置”
-                if any(k in d for k in ("dit_path", "vae_path", "t5_tokenizer_dir")):
-                    return True
-                q3 = d.get("qwen3")
-                return isinstance(q3, dict) and any(k in q3 for k in ("model_or_weights_path", "config_dir", "tokenizer_dir"))
-
-            # 优先级：anima_paths（专用） > anima（当 anima 同时承载 paths 时）
-            raw_paths = anima_paths_cfg if _looks_like_paths(anima_paths_cfg) else (anima_cfg if _looks_like_paths(anima_cfg) else {})
-            # 只有 runtime backend 才进行注入；diffusers backend 应保持“完全无特判”（避免 kwargs 被过滤/掉参日志污染）
-            runtime_backend = False
-            if backend_pref == "runtime":
-                runtime_backend = True
-            elif backend_pref == "diffusers":
-                runtime_backend = False
-            else:
-                # auto：有 manifest 或显式提供 anima_paths 时，认为是 runtime bundle
-                runtime_backend = bool(has_manifest or raw_paths)
-
-            if not runtime_backend:
-                return {}
-
-            # 设备参数（runtime）：优先使用 device_plan，确保 AnimaInferencer 在目标设备构建/加载
-            try:
-                overrides["device"] = str(getattr(device_plan, "device", "") or "cuda")
-                sources["device"] = "device_plan"
-            except Exception:
-                pass
-
-            # paths（runtime）：可由 model_config 注入；若未提供，AnimaPipeline 也可自行从 manifest 读取
-            if raw_paths:
-                try:
-                    from third_party.anima_runtime import AnimaPaths  # type: ignore
-                    from third_party.anima_runtime.tokenizers import Qwen3LocalPaths  # type: ignore
-
-                    q3 = raw_paths.get("qwen3")
-                    if not isinstance(q3, dict):
-                        raise ValueError("model_config.anima.qwen3 must be a dict")
-                    paths = AnimaPaths(
-                        dit_path=_resolve_rel_to_model_root(raw_paths.get("dit_path")),
-                        vae_path=_resolve_rel_to_model_root(raw_paths.get("vae_path")),
-                        qwen3=Qwen3LocalPaths(
-                            model_or_weights_path=_resolve_rel_to_model_root(q3.get("model_or_weights_path")),
-                            config_dir=_resolve_rel_to_model_root(q3.get("config_dir")),
-                            tokenizer_dir=_resolve_rel_to_model_root(q3.get("tokenizer_dir")),
-                        ),
-                        t5_tokenizer_dir=_resolve_rel_to_model_root(raw_paths.get("t5_tokenizer_dir")),
-                    )
-                    overrides["anima_paths"] = paths
-                    sources["anima_paths"] = "model_config"
-                    component_sig["anima_paths"] = (
-                        f"dit={paths.dit_path}|vae={paths.vae_path}|qwen3={paths.qwen3.model_or_weights_path}|"
-                        f"qwen3_cfg={paths.qwen3.config_dir}|qwen3_tok={paths.qwen3.tokenizer_dir}|t5_tok={paths.t5_tokenizer_dir}"
-                    )
-                except Exception as e:
-                    raise ValueError(f"[anima] invalid model_config paths: {e}") from e
-
-            # 运行时可选参数（仅 family=anima 时透传；不参与 diffusers kwargs 过滤会自动 drop 无关项）
-            for k in (
-                "text_device",
-                "text_dtype",
-                "attn_mode",
-                "split_attn",
-                "vae_spatial_chunk_size",
-                "vae_disable_cache",
-                "enable_block_swap",
-                "dit_loading_device",
-                "qwen3_loading_device",
-                "materialize_cpu_tensors_before_to_cuda",
-            ):
-                v = anima_cfg.get(k) if isinstance(anima_cfg, dict) else None
-                if v is None:
-                    continue
-                overrides[k] = v
-                sources[k] = "model_config(anima)"
-                component_sig[k] = str(v)
-
-            if sources:
-                overrides["__component_sources"] = dict(sources)
-            if component_sig:
-                overrides["__component_sig"] = dict(component_sig)
-            return overrides
+        runtime = _anima_runtime_overrides(
+            model_config=model_config,
+            inference_config=inference_config,
+            device_plan=device_plan,
+            model_info=model_info,
+        )
+        if runtime is not None:
+            return runtime
 
     # from_single_file: 统一要求项目内 inference/config/<family> 存在
     if getattr(model_info, "method", None) == "from_single_file":

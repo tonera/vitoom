@@ -1,8 +1,13 @@
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 
 from common.model_catalog.types import PipelineRef
-from common.pipeline_component_injector import _nunchaku_diffusers_sibling_dir, _nunchaku_file_precision
+from common.pipeline_component_injector import (
+    _nunchaku_diffusers_sibling_dir,
+    _nunchaku_file_precision,
+    build_component_overrides,
+)
 from image.runtime.anima_diffusers_pipeline import AnimaDiffusersPipeline, resolve_anima_scheduler
 
 
@@ -146,24 +151,100 @@ def test_anima_nunchaku_sibling_and_precision(tmp_path: Path) -> None:
     assert _nunchaku_file_precision(int8) == "int8"
 
 
-def test_runtime_backend_wins_for_single_file(tmp_path: Path, monkeypatch) -> None:
-    ckpt = tmp_path / "model.safetensors"
-    ckpt.write_bytes(b"x")
+def test_index_and_single_file_pick_pipeline(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(PipelineRef, "resolve", lambda self: self.attr)
     from common.pipeline_detector import PipelineDetector
 
     detector = PipelineDetector()
-    runtime = SimpleNamespace(
-        load_name=str(ckpt),
-        family="anima",
-        model_cfg={"anima": {"backend": "runtime"}},
-        url=None,
+    ckpt = tmp_path / "model.safetensors"
+    ckpt.write_bytes(b"x")
+    single = SimpleNamespace(load_name=str(ckpt), family="anima", model_cfg={}, url=None)
+    assert detector.get_pipeline(single) == "AnimaDiffusersPipeline"
+
+    modular = tmp_path / "anima"
+    modular.mkdir()
+    (modular / "modular_model_index.json").write_text(
+        '{"_class_name": "AnimaModularPipeline"}',
+        encoding="utf-8",
     )
-    diffusers = SimpleNamespace(
-        load_name=str(ckpt),
-        family="anima",
-        model_cfg={},
-        url=None,
-    )
-    assert detector.get_pipeline(runtime) == "AnimaPipeline"
+    diffusers = SimpleNamespace(load_name=str(modular), family=None, model_cfg={}, url=None)
     assert detector.get_pipeline(diffusers) == "AnimaDiffusersPipeline"
+
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    (runtime_dir / "model_index.json").write_text('{"_class_name": "AnimaPipeline"}', encoding="utf-8")
+    runtime = SimpleNamespace(load_name=str(runtime_dir), family=None, model_cfg={}, url=None)
+    assert detector.get_pipeline(runtime) == "AnimaPipeline"
+
+    both = tmp_path / "both"
+    both.mkdir()
+    (both / "model_index.json").write_text('{"_class_name": "ModularPipeline"}', encoding="utf-8")
+    (both / "modular_model_index.json").write_text(
+        '{"_class_name": "ModularPipeline", "_blocks_class_name": "AnimaAutoBlocks"}',
+        encoding="utf-8",
+    )
+    covered = SimpleNamespace(load_name=str(both), family=None, model_cfg={}, url=None)
+    assert detector.get_pipeline(covered) == "AnimaDiffusersPipeline"
+
+    manifest_only = tmp_path / "manifest"
+    manifest_only.mkdir()
+    (manifest_only / "anima_paths.json").write_text("{}", encoding="utf-8")
+    bundle = SimpleNamespace(load_name=str(manifest_only), family=None, model_cfg={}, url=None)
+    assert detector.get_pipeline(bundle) == "AnimaPipeline"
+    assert detector.family == "anima"
+
+
+def test_runtime_bundle_keeps_load_config_and_diffusers_does_not(tmp_path: Path) -> None:
+    bundle = tmp_path / "Anima"
+    bundle.mkdir()
+    (bundle / "anima_paths.json").write_text("{}", encoding="utf-8")
+    weight = bundle / "dit.safetensors"
+    weight.write_bytes(b"x")
+    config = {
+        "anima": {"attn_mode": "torch", "enable_block_swap": 1},
+        "anima_paths": {
+            "dit_path": "dit.safetensors",
+            "vae_path": "dit.safetensors",
+            "t5_tokenizer_dir": "dit.safetensors",
+            "qwen3": {
+                "model_or_weights_path": "dit.safetensors",
+                "config_dir": "dit.safetensors",
+                "tokenizer_dir": "dit.safetensors",
+            },
+        },
+    }
+    loaded = build_component_overrides(
+        family="anima",
+        model_config=config,
+        inference_config=SimpleNamespace(models_dir=str(tmp_path), weights_dir=str(tmp_path)),
+        device_plan=SimpleNamespace(torch_dtype=None, device="cpu"),
+        model_info=SimpleNamespace(repo_id=str(bundle), method="from_pretrained"),
+        logger=logging.getLogger("anima-test"),
+        num_inference_steps=20,
+        fast_mode=False,
+        low_vram=False,
+    )
+    assert loaded["device"] == "cpu"
+    assert loaded["attn_mode"] == "torch"
+    assert loaded["enable_block_swap"] == 1
+    assert loaded["anima_paths"]["dit_path"] == str(weight)
+
+    diffusers_dir = tmp_path / "diffusers"
+    diffusers_dir.mkdir()
+    (diffusers_dir / "modular_model_index.json").write_text(
+        '{"_class_name": "AnimaModularPipeline"}',
+        encoding="utf-8",
+    )
+    diffusers = build_component_overrides(
+        family="anima",
+        model_config=config,
+        inference_config=SimpleNamespace(models_dir=str(tmp_path), weights_dir=str(tmp_path)),
+        device_plan=SimpleNamespace(torch_dtype=None, device="cpu"),
+        model_info=SimpleNamespace(repo_id=str(diffusers_dir), method="from_pretrained"),
+        logger=logging.getLogger("anima-test"),
+        num_inference_steps=20,
+        fast_mode=False,
+        low_vram=False,
+    )
+    assert "anima_paths" not in diffusers
+    assert "attn_mode" not in diffusers

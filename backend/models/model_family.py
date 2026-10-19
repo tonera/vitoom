@@ -32,6 +32,7 @@ _FAMILY_ALIASES_LIST: Dict[str, List[str]] = {
     "flux_kontext": ["flux_kontext", "Flux.1 Kontext"],
     "flux2": ["flux2", "Flux2", "Flux.2 D"],
     "flux2_klein": ["flux2_klein", "Flux.2 Klein"],
+    "flux3_klein": ["flux3_klein", "Flux.3 Klein", "FLUX.3 Image Klein", "flux-3-image-klein"],
     "zimage": ["zimage", "ZImageTurbo"],
     "qwen": ["qwen", "Qwen"],
     "qwen.edit": ["qwen.edit", "qwen-edit", "Qwen-edit"],

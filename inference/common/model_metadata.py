@@ -29,9 +29,26 @@ def read_int_from_json(path: Path, key: str) -> Optional[int]:
 
 
 def read_family_name(root: Path) -> Optional[str]:
-    path = root / "model_index.json"
-    v = read_json_value(path, "_class_name", None)
-    return str(v) if isinstance(v, str) and v.strip() else None
+    """先读 model_index.json，再读 modular_model_index.json。
+
+    ModularPipeline / ModularPipelineBlocks 是通用类名，不能在这里返回，
+    否则官方目录里真正的 blocks 类名会被盖住。
+    """
+    generic = {"", "ModularPipeline", "ModularPipelineBlocks"}
+    fallback = ""
+    for filename in ("model_index.json", "modular_model_index.json"):
+        data = read_json_dict(root / filename)
+        if not isinstance(data, dict):
+            continue
+        class_name = str(data.get("_class_name") or "").strip()
+        blocks_name = str(data.get("_blocks_class_name") or "").strip()
+        if class_name not in generic:
+            return class_name
+        if blocks_name not in generic:
+            return blocks_name
+        if class_name and not fallback:
+            fallback = class_name
+    return fallback or None
 
 
 def safetensors_has_any_prefixes(path: Path, prefixes: tuple[str, ...]) -> bool:

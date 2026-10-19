@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any
 
 from common.anima_checkpoint import (
-    is_anima_diffusers_dir,
     load_anima_transformer_from_single_file,
     resolve_anima_diffusers_base,
 )
@@ -56,40 +55,6 @@ _COMPONENT_NAMES = (
     "vae",
     "transformer",
 )
-_MODEL_WEIGHT_SUFFIXES = (".safetensors", ".bin", ".pt", ".pth")
-_TOKENIZER_MARKERS = ("tokenizer_config.json", "tokenizer.json", "spiece.model")
-
-
-def _component_has_local_files(component_dir: Path, name: str) -> bool:
-    if not component_dir.is_dir():
-        return False
-    filenames = [path.name for path in component_dir.iterdir()]
-    if name in {"tokenizer", "t5_tokenizer"}:
-        return any(marker in filenames for marker in _TOKENIZER_MARKERS)
-    if name == "scheduler":
-        return "scheduler_config.json" in filenames
-    return any(filename.endswith(_MODEL_WEIGHT_SUFFIXES) or filename.endswith(".index.json") for filename in filenames)
-
-
-def _pin_specs_to_local(pipe: Any, pipeline_dir: Path, names: tuple[str, ...] | list[str]) -> None:
-    missing: list[str] = []
-    for name in names:
-        spec = pipe._component_specs.get(name)
-        if spec is None:
-            missing.append(f"{name}: pipeline 里没有这个组件")
-            continue
-        subfolder = getattr(spec, "subfolder", None) or name
-        component_dir = pipeline_dir / subfolder
-        if not _component_has_local_files(component_dir, name):
-            missing.append(f"{name}: {component_dir}")
-            continue
-        spec.pretrained_model_name_or_path = str(pipeline_dir)
-        if hasattr(spec, "revision"):
-            spec.revision = None
-    if missing:
-        raise FileNotFoundError(
-            "Anima diffusers 目录缺少组件，不会访问 Hugging Face：\n" + "\n".join(missing)
-        )
 
 
 def _configured_model_roots() -> list[Path]:
@@ -168,14 +133,12 @@ class AnimaDiffusersPipeline:
         from diffusers import AnimaModularPipeline
 
         pipeline_dir = Path(str(repo_id)).expanduser()
-        if not is_anima_diffusers_dir(pipeline_dir):
-            raise FileNotFoundError(f"不是 Anima diffusers 目录（缺少 modular_model_index.json）: {pipeline_dir}")
+        if not (pipeline_dir / "modular_model_index.json").is_file():
+            raise FileNotFoundError(f"Anima 缺少 modular_model_index.json: {pipeline_dir}")
 
         pipe = AnimaModularPipeline.from_pretrained(str(pipeline_dir), local_files_only=True)
-        names = list(_COMPONENT_NAMES)
-        if transformer is not None:
-            names = [name for name in names if name != "transformer"]
-        _pin_specs_to_local(pipe, pipeline_dir, names)
+        specs = getattr(pipe, "_component_specs", None) or {}
+        names = [name for name in (specs or _COMPONENT_NAMES) if not (transformer is not None and name == "transformer")]
         if torch_dtype is None:
             import torch
 
