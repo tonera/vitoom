@@ -1,0 +1,33 @@
+service_id: "prompt"
+name: "Prompt Upsampler"
+type: "nunchaku"
+service_type: "prompt"
+
+host: "127.0.0.1"
+port: 8008
+
+config:
+  # 请求里的 load_name 会被忽略，始终加载这个模型。
+  fixed_model: "flux-3-image-klein-pup-nunchaku"
+  supported_models:
+    - "flux-3-image-klein-pup-nunchaku"
+  capabilities:
+    - "prompt.upsample"
+  supports_task: true
+  runtime:
+    device: "cuda"
+    dtype: "bfloat16"
+    # 默认与上限。调用方可通过 payload.extract.max_new_tokens 调低。
+    max_new_tokens: 3584
+    max_images: 10
+    max_image_bytes: 20971520
+
+# 权重是否常驻由 inference.yaml 的 pipeline_cache_ttl_seconds 决定：
+# - 0：每个任务结束后释放权重
+# - >0：同一模型复用已加载权重，空闲超过该秒数后释放
+#
+# 模型目录（相对 models_dir）只放 processor 和量化权重：
+#   flux-3-image-klein-pup-nunchaku/ 下的 processor
+#   flux-3-image-klein-pup-nunchaku/svdq-int4-flux-3-image-klein-pup-nunchaku.safetensors
+# 量化权重也可以放在 weights_dir/flux-3-image-klein-pup-nunchaku/ 下。
+# 系统提示词使用 inference/prompt/runtime/system_prompts.json，不读模型目录里的同名文件。

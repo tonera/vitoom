@@ -1,0 +1,1 @@
+"""Prompt upsampler inference service."""

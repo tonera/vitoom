@@ -8,7 +8,7 @@ DOWNLOAD_SHARE_MIN_SIZE_BYTES = 50 * 1024 * 1024
 # 允许参与共享/复用的文件后缀
 DOWNLOAD_SHARE_EXTS = (".safetensors", ".pth", ".pt", ".ckpt")
 
-MODEL_15 = ['sd15', 'SD15']
+MODEL_15 = ['sd15', 'SD15', 'SD1.5']
 MODEL_SDXL = ['sdxl', 'SDXL 1.0', 'Illustrious', 'NoobAI', 'Pony']
 MODEL_SD3 = ['sd3', 'presd3', 'SDXL 3.0']
 MODEL_FLUX = ['flux', 'flux-d', 'flux-s', 'Flux.1 D', 'Flux.1 S']

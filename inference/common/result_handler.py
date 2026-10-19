@@ -336,6 +336,7 @@ class ResultHandler:
             "audio": "mp3",
             "mini": "md",
             "translate": "txt",
+            "prompt": "txt",
         }.get(task_type, "bin")
         if task_type == "image":
             file_data, file_ext = self._adapt_image_to_file_ext(file_data, file_ext)
@@ -370,8 +371,8 @@ class ResultHandler:
             )
         elif task_type == "audio":
             thumbnail_path = None
-        elif task_type in ("text", "mini", "translate"):
-            # text / mini / translate 文本结果无需缩略图
+        elif task_type in ("text", "mini", "translate", "prompt"):
+            # text / mini / translate / prompt 文本结果无需缩略图
             thumbnail_path = None
         else:
             logger.warning(f"Unknown task_type: {task_type}, skipping thumbnail generation")

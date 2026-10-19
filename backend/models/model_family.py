@@ -25,7 +25,7 @@ def _norm(v: object) -> str:
 # 以保证 UI 展示与兼容集合行为稳定。
 #
 _FAMILY_ALIASES_LIST: Dict[str, List[str]] = {
-    "sd15": ["sd15", "SD15", "sd21"],
+    "sd15": ["sd15", "SD15", "SD1.5", "sd21"],
     "sdxl": ["sdxl", "SDXL 1.0", "Illustrious", "NoobAI", "Pony"],
     "sd3": ["sd3", "presd3", "SDXL 3.0"],
     "flux": ["flux", "flux-d", "flux-s", "Flux.1 D", "Flux.1 S"],

@@ -15,7 +15,7 @@ class InferenceRequestParams(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
     # ========== 1. 消息参数 ==========
-    type: str = Field(..., description="任务大类:image/video/audio/text/translate/mini/upload")
+    type: str = Field(..., description="任务大类:image/video/audio/text/translate/mini/prompt/upload")
     job_type: str = Field(..., description="任务执行分类:MK,RBG...")
     storage: Literal["local", "oss", "s3", "r2", "server"] = Field(
         default="local", 
@@ -392,6 +392,7 @@ class InferenceRequestParams(BaseModel):
             "audio": "mp3",
             "mini": "md",
             "translate": "txt",
+            "prompt": "txt",
         }.get(type_value, "bin")
 
         data = {
@@ -505,9 +506,21 @@ class InferenceRequestParams(BaseModel):
             if "loras" in params:
                 data["loras"] = params.get("loras")
 
-            # mini 服务扩展参数（OCR 等小模型）
+            # mini 服务扩展参数（OCR 等小模型）；prompt 扩写也复用 extract。
             if "extract" in params:
                 data["extract"] = params.get("extract")
+
+            if type_value == "prompt":
+                extract = data.get("extract")
+                extract = dict(extract) if isinstance(extract, dict) else {}
+                messages = params.get("messages")
+                if isinstance(messages, list) and "messages" not in extract:
+                    extract["messages"] = messages
+                for key in ("max_new_tokens", "max_tokens", "max_completion_tokens"):
+                    if key in params and key not in extract:
+                        extract[key] = params.get(key)
+                if extract:
+                    data["extract"] = extract
         
         # ===== family：统一使用 model_catalog.family =====
         raw = ""
