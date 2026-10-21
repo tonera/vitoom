@@ -576,11 +576,23 @@ def _load_unet(ctx: ComponentContext, root: Path) -> Any:
     return UNet2DConditionModel.from_pretrained(str(root), **kwargs)
 
 
+def _nunchaku_sdxl_dtype() -> Any:
+    """
+    Nunchaku SDXL UNet 的非量化层（time_embedding 等）默认是 bfloat16。
+    官方加载方式把整条 StableDiffusionXLPipeline 也建在 bfloat16 上；
+    管道若仍是 float16，denoising 输入会和这些权重错 dtype。
+    """
+    import torch
+
+    return torch.bfloat16
+
+
 def _load_nunchaku_unet_sdxl(ctx: ComponentContext, ckpt: Path) -> Any:
     from nunchaku.models.unets.unet_sdxl import NunchakuSDXLUNet2DConditionModel  # type: ignore
 
-    ctx.logger.info(f"[inject] sdxl nunchaku_unet: {ckpt}")
-    return NunchakuSDXLUNet2DConditionModel.from_pretrained(str(ckpt))
+    dtype = _nunchaku_sdxl_dtype()
+    ctx.logger.info(f"[inject] sdxl nunchaku_unet: {ckpt} torch_dtype={dtype}")
+    return NunchakuSDXLUNet2DConditionModel.from_pretrained(str(ckpt), torch_dtype=dtype)
 
 
 def _load_vae(ctx: ComponentContext, root: Path) -> Any:
@@ -924,6 +936,12 @@ def _apply_auto_nunchaku_overrides(
             pass
     else:
         if ctx.family == "sdxl" and "nunchaku_unet" in allowed and "unet" not in overrides:
+            dtype = _nunchaku_sdxl_dtype()
+            overrides["torch_dtype"] = dtype
+            try:
+                ctx.device_plan.torch_dtype = dtype
+            except Exception:
+                pass
             _register_lazy_component_loader(
                 overrides,
                 key="unet",
@@ -934,7 +952,7 @@ def _apply_auto_nunchaku_overrides(
             try:
                 ctx.logger.info(
                     f"[inject-plan] auto-detect nunchaku unet family=sdxl path={str(main_ckpt)!r} "
-                    f"(lazy; load on pipeline cache miss)"
+                    f"torch_dtype={dtype} (lazy; load on pipeline cache miss)"
                 )
             except Exception:
                 pass

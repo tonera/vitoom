@@ -18,6 +18,50 @@ from common.image_utils import load_image, load_images_from_list
 import torch
 
 
+def _negative_prompt_is_blank(value: Any) -> bool:
+    """缺失或空白的 negative_prompt 交给 pipeline.encode_prompt。
+
+    diffusers 只在 negative_prompt is None 且 force_zeros_for_empty_prompt 时把
+    无条件向量置零。预先编码空字符串、或把 "" 传进去，都会绕开这条路径。
+    """
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return not value.strip()
+    return False
+
+
+def _apply_sdxl_prompt_embeds(
+    base: Dict[str, Any],
+    request_params: InferenceRequestParams,
+    pipeline_instance: Any,
+) -> None:
+    neg = getattr(request_params, "negative_prompt", None)
+    blank_neg = _negative_prompt_is_blank(neg)
+    if pipeline_instance is None:
+        if blank_neg:
+            base.pop("negative_prompt", None)
+        return
+    try:
+        prompt_embeds, negative_prompt_embeds, pooled_prompt_embeds, negative_pooled_prompt_embeds = (
+            get_weighted_text_embeddings_sdxl(
+                pipe=pipeline_instance,
+                prompt=request_params.prompt,
+                neg_prompt="" if blank_neg else str(neg),
+            )
+        )
+        base["prompt_embeds"] = prompt_embeds
+        base["pooled_prompt_embeds"] = pooled_prompt_embeds
+        base.pop("prompt", None)
+        base.pop("negative_prompt", None)
+        if not blank_neg:
+            base["negative_prompt_embeds"] = negative_prompt_embeds
+            base["negative_pooled_prompt_embeds"] = negative_pooled_prompt_embeds
+    except Exception:
+        if blank_neg:
+            base.pop("negative_prompt", None)
+
+
 class InferenceParamSpec:
     families: set[str] = set()
     pipeline_class_names: set[str] = set()
@@ -213,25 +257,7 @@ class SdxlAutoPipelineInferenceParamSpec(InferenceParamSpec):
                     base["image"] = image
                 base["strength"] = request_params.strength
 
-        # SDXL: 若 pipeline 实例可用，生成 prompt_embeds 并移除 prompt 文本
-        if pipeline_instance is not None:
-            try:
-                prompt_embeds, negative_prompt_embeds, pooled_prompt_embeds, negative_pooled_prompt_embeds = (
-                    get_weighted_text_embeddings_sdxl(
-                        pipe=pipeline_instance,
-                        prompt=request_params.prompt,
-                        neg_prompt=request_params.negative_prompt or "",
-                    )
-                )
-                base["prompt_embeds"] = prompt_embeds
-                base["negative_prompt_embeds"] = negative_prompt_embeds
-                base["pooled_prompt_embeds"] = pooled_prompt_embeds
-                base["negative_pooled_prompt_embeds"] = negative_pooled_prompt_embeds
-                base.pop("prompt", None)
-                base.pop("negative_prompt", None)
-            except Exception as e:
-                # 失败则回退为文本 prompt
-                pass
+        _apply_sdxl_prompt_embeds(base, request_params, pipeline_instance)
         return base
 
 
@@ -333,25 +359,7 @@ class SdxlMainInferenceParamSpec(InferenceParamSpec):
                     base["control_image"] = control_image
             base["controlnet_conditioning_scale"] = getattr(request_params, "controlnet_conditioning_scale", 1.0)
 
-        # SDXL prompt embeds（仅在 pipeline 已初始化时）
-        if pipeline_instance is not None:
-            try:
-                prompt_embeds, negative_prompt_embeds, pooled_prompt_embeds, negative_pooled_prompt_embeds = (
-                    get_weighted_text_embeddings_sdxl(
-                        pipe=pipeline_instance,
-                        prompt=request_params.prompt,
-                        neg_prompt=request_params.negative_prompt or "",
-                    )
-                )
-                base["prompt_embeds"] = prompt_embeds
-                base["negative_prompt_embeds"] = negative_prompt_embeds
-                base["pooled_prompt_embeds"] = pooled_prompt_embeds
-                base["negative_pooled_prompt_embeds"] = negative_pooled_prompt_embeds
-                base.pop("prompt", None)
-                base.pop("negative_prompt", None)
-            except Exception:
-                pass
-
+        _apply_sdxl_prompt_embeds(base, request_params, pipeline_instance)
         return base
 
 

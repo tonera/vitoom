@@ -143,15 +143,15 @@ class PipelineService:
 
         model_info = self.model_locator.locate(params)
         device_plan = self.device_planner.plan(params)
-        self.logger.info(
-            f"载入推理管道: {pipeline_cls.__name__}, family: {params.family} "
-            f"torch_dtype: {device_plan.torch_dtype}, device: {device_plan.device}"
-        )
-
         pipeline_params = self.detector.build_pipeline_params(
             params,
             device_plan=device_plan,
             model_info=model_info,
+        )
+        effective_dtype = pipeline_params.get("torch_dtype", device_plan.torch_dtype)
+        self.logger.info(
+            f"载入推理管道: {pipeline_cls.__name__}, family: {params.family} "
+            f"torch_dtype: {effective_dtype}, device: {device_plan.device}"
         )
         display_pipeline_params = {k: v for k, v in pipeline_params.items() if k != "__lazy_component_loaders"}
         print_info(display_pipeline_params, "管道参数:")
