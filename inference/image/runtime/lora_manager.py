@@ -165,6 +165,11 @@ def load_loras_into_pipe(pipe: Any, family: str, loras_dir: str, lora_list: list
             logger.error(f"Failed to load nunchaku LoRA: {e}", exc_info=True)
         return
 
+    unet = getattr(pipe, "unet", None)
+    if unet is not None and _is_nunchaku_transformer(unet):
+        _load_nunchaku_unet_loras(pipe, unet, family, loras_dir_abs, lora_list, logger=logger)
+        return
+
     # diffusers adapters
     try:
         try:
@@ -196,6 +201,93 @@ def load_loras_into_pipe(pipe: Any, family: str, loras_dir: str, lora_list: list
                 logger.info(f"LoRA adapters activated: {adapters}, weights={weights}")
     except Exception as e:
         logger.error(f"Failed to load diffusers LoRA: {e}", exc_info=True)
+
+
+def _load_nunchaku_unet_loras(
+    pipe: Any, unet: Any, family: str, loras_dir_abs: str, lora_list: list[dict], *, logger: Any
+) -> None:
+    """
+    nunchaku SDXL UNet：UNet 部分走 unet.update_lora_params（量化层不能挂 PEFT 层），
+    text encoder 部分仍走 diffusers adapters。
+    """
+    if not hasattr(unet, "update_lora_params"):
+        logger.warning(f"Nunchaku UNet {type(unet).__name__} does not support LoRA; skip")
+        return
+
+    try:
+        unload_loras_from_pipe(pipe, family, logger=logger)
+    except Exception:
+        logger.debug("cleanup: reset LoRA state before load failed (ignored)", exc_info=True)
+
+    entries: list[tuple[str, float, str]] = []
+    for item in lora_list:
+        path = _resolve_lora_path(loras_dir_abs, str(item.get("name", "")))
+        if not path or not os.path.exists(path):
+            logger.warning(f"LoRA file not found: {path}")
+            continue
+        adapter_name = _sanitize_adapter_name(
+            str(item.get("adapter_name") or _normalize_lora_key(str(item.get("name", ""))) or "lora")
+        )
+        entries.append((path, float(item.get("weights", 0.8)), adapter_name))
+    if not entries:
+        return
+
+    tuples = [(path, weight) for path, weight, _ in entries]
+    try:
+        logger.info(f"Loading nunchaku UNet LoRA: {tuples}")
+        unet.update_lora_params(tuples)
+    except Exception as e:
+        logger.error(f"Failed to load nunchaku UNet LoRA: {e}", exc_info=True)
+        try:
+            unet.reset_lora()
+        except Exception:
+            logger.error("Failed to reset nunchaku UNet LoRA; pipeline will be evicted after use", exc_info=True)
+            setattr(pipe, "_vitoom_evict_after_use", True)
+            setattr(pipe, "_vitoom_evict_reason", "nunchaku_unet_lora_reset_failed")
+
+    _load_text_encoder_loras(pipe, entries, logger=logger)
+
+
+def _load_text_encoder_loras(pipe: Any, entries: list[tuple[str, float, str]], *, logger: Any) -> None:
+    """只把 LoRA 的 text encoder 部分加载为 diffusers adapters（非 meta 初始化，失败不会留下 meta 参数）。"""
+    text_encoders = [(n, getattr(pipe, n, None)) for n in ("text_encoder", "text_encoder_2")]
+    text_encoders = [(n, te) for n, te in text_encoders if te is not None]
+    if not text_encoders or not hasattr(pipe, "lora_state_dict") or not hasattr(pipe, "load_lora_into_text_encoder"):
+        return
+
+    from diffusers.utils.peft_utils import set_weights_and_activate_adapters
+
+    _ensure_transformers_pytorch_gelu_tanh(logger=logger)
+    loaded: dict[str, tuple[list[str], list[float]]] = {n: ([], []) for n, _ in text_encoders}
+    for path, weight, adapter_name in entries:
+        try:
+            state_dict, network_alphas = pipe.lora_state_dict(path, unet_config=pipe.unet.config)
+        except Exception as e:
+            logger.warning(f"Failed to parse text-encoder LoRA {os.path.basename(path)}: {e}")
+            continue
+        for name, te in text_encoders:
+            if not any(k.startswith(f"{name}.") for k in state_dict):
+                continue
+            try:
+                pipe.load_lora_into_text_encoder(
+                    state_dict,
+                    network_alphas=network_alphas,
+                    text_encoder=te,
+                    prefix=name,
+                    adapter_name=adapter_name,
+                    _pipeline=pipe,
+                    low_cpu_mem_usage=False,
+                )
+                loaded[name][0].append(adapter_name)
+                loaded[name][1].append(weight)
+            except Exception as e:
+                logger.warning(f"Failed to load {name} LoRA {os.path.basename(path)}: {e}")
+
+    for name, te in text_encoders:
+        adapters, weights = loaded[name]
+        if adapters:
+            set_weights_and_activate_adapters(te, adapters, weights)
+            logger.info(f"Text-encoder LoRA activated: {name} adapters={adapters} weights={weights}")
 
 
 def _collect_lora_tuples(loras_dir_abs: str, lora_list: list[dict], *, logger: Any) -> list[tuple[str, float]]:
@@ -243,6 +335,14 @@ def unload_loras_from_pipe(pipe: Any, family: str, *, logger: Any) -> None:
             return
     except Exception:
         logger.debug("reset nunchaku LoRA failed (ignored)", exc_info=True)
+
+    # nunchaku SDXL UNet：UNet 恢复快照后，继续走下面的 diffusers 卸载清理 text encoder adapters。
+    try:
+        unet = getattr(pipe, "unet", None)
+        if unet is not None and _is_nunchaku_transformer(unet) and hasattr(unet, "reset_lora"):
+            unet.reset_lora()
+    except Exception:
+        logger.debug("reset nunchaku UNet LoRA failed (ignored)", exc_info=True)
 
     if mv.startswith("flux"):
         try:

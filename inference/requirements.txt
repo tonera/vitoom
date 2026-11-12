@@ -47,8 +47,8 @@ psutil>=5.9.0
 nvidia-ml-py>=13.0.0
 
 # AI推理依赖
-diffusers>=0.38.0
-transformers>=4.57,<5
+diffusers>=0.42.0
+transformers==5.19.0
 accelerate>=1.9
 pillow>=10.0.0
 safetensors>=0.4.0  # 用于模型权重文件读取
@@ -87,6 +87,7 @@ torchsde
 kornia
 # 视频
 imageio-ffmpeg
+comfy-kitchen==0.2.41
 # 音频生成视频
 librosa
 soundfile>=0.12.1

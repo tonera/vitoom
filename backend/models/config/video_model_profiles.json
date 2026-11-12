@@ -316,6 +316,43 @@
         ],
         "default_resolution": 720
       }
+    },
+    "minimax_h3": {
+      "match": {
+        "exact": [
+          "minimax_h3"
+        ],
+        "contains": [
+          "minimax-h3"
+        ]
+      },
+      "extends": [
+        "t2v",
+        "i2v",
+        "inp"
+      ],
+      "overrides": {
+        "supported_resolutions": [
+          480,
+          544,
+          640,
+          720,
+          768
+        ],
+        "default_resolution": 768,
+        "controls": {
+          "lora": false
+        }
+      },
+      "mode_overrides": {
+        "i2v": {
+          "inputs": {
+            "prompt": {
+              "required": true
+            }
+          }
+        }
+      }
     }
   }
 }

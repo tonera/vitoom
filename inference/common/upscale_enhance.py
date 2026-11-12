@@ -17,10 +17,11 @@
 from __future__ import annotations
 
 import os
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -31,6 +32,11 @@ from .logger import get_logger
 from .face_enhancers import FaceEnhancerBuildConfig, build_face_enhancer
 
 logger = get_logger(__name__)
+
+# 进程内常驻：同一配置只加载一次，后续请求直接复用，避免每次读权重、占显存再释放。
+_RESIDENT_LOCK = threading.Lock()
+_UPSAMPLER_CACHE: dict[tuple, Any] = {}
+_FACE_ENHANCER_CACHE: dict[tuple, Any] = {}
 
 def _install_torchvision_functional_tensor_shim() -> None:
     """
@@ -110,27 +116,65 @@ class UpscaleEnhance:
         # default first candidate
         return str(candidates[0])
 
+    def _sr_load_name(self) -> str:
+        if self.cfg.mode == "anime":
+            return "RealESRGAN_x4plus_anime_6B"
+        if self.cfg.mode == "video":
+            return "realesr-animevideov3"
+        if int(self.cfg.upscale) == 4:
+            return "RealESRGAN_x4plus"
+        return "RealESRGAN_x2plus"
+
+    def _sr_runtime_params(self) -> tuple[int, int, int, bool]:
+        return (
+            int(os.environ.get("TONERA_SR_TILE", "500")),
+            int(os.environ.get("TONERA_SR_TILE_PAD", "10")),
+            int(os.environ.get("TONERA_SR_PRE_PAD", "0")),
+            False,
+        )
+
+    def _upsampler_cache_key(self) -> tuple:
+        tile, tile_pad, pre_pad, half = self._sr_runtime_params()
+        model_path = self._resolve_weight(self._sr_load_name() + ".pth")
+        return (
+            str(Path(self.cfg.weights_dir)),
+            self.cfg.mode,
+            int(self.cfg.upscale),
+            self.device,
+            tile,
+            tile_pad,
+            pre_pad,
+            half,
+            model_path,
+        )
+
+    def _face_cache_key(self, upsampler: Any) -> tuple:
+        upscale = int(self.cfg.upscale) if int(self.cfg.upscale) >= 1 else 1
+        return (
+            str(Path(self.cfg.weights_dir)),
+            str(self.cfg.arch or "clean"),
+            upscale,
+            (os.getenv("VITOOM_FACE_ENHANCER") or "gfpgan").strip().lower(),
+            (os.getenv("VITOOM_CODEFORMER_W") or "").strip(),
+            (os.getenv("VITOOM_CODEFORMER_CKPT") or "codeformer.pth").strip(),
+            id(upsampler) if upsampler is not None else 0,
+        )
+
     def _get_net_model(self):
         _install_torchvision_functional_tensor_shim()
         # imports are heavy; delay
         from realesrgan.archs.srvgg_arch import SRVGGNetCompact  # type: ignore
         from basicsr.archs.rrdbnet_arch import RRDBNet  # type: ignore
 
-        model = None
-        load_name = "RealESRGAN_x2plus"
-        if self.cfg.mode == "anime":
-            load_name = "RealESRGAN_x4plus_anime_6B"
+        load_name = self._sr_load_name()
+        if load_name == "RealESRGAN_x4plus_anime_6B":
             model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=6, num_grow_ch=32, scale=4)
-        elif self.cfg.mode == "video":
-            load_name = "realesr-animevideov3"
+        elif load_name == "realesr-animevideov3":
             model = SRVGGNetCompact(num_in_ch=3, num_out_ch=3, num_feat=64, num_conv=16, upscale=4, act_type="prelu")
+        elif load_name == "RealESRGAN_x4plus":
+            model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4)
         else:
-            if self.cfg.upscale == 4:
-                load_name = "RealESRGAN_x4plus"
-                model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4)
-            else:
-                load_name = "RealESRGAN_x2plus"
-                model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2)
+            model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2)
         return load_name, model
 
     def _load_upscaler(self):
@@ -148,11 +192,7 @@ class UpscaleEnhance:
 
         load_name, net_model = self._get_net_model()
         model_path = self._resolve_weight(load_name + ".pth")
-
-        tile = int(os.environ.get("TONERA_SR_TILE", "500"))
-        tile_pad = int(os.environ.get("TONERA_SR_TILE_PAD", "10"))
-        pre_pad = int(os.environ.get("TONERA_SR_PRE_PAD", "0"))
-        half = False
+        tile, tile_pad, pre_pad, half = self._sr_runtime_params()
 
         try:
             upscaler = RealESRGANer(
@@ -195,6 +235,51 @@ class UpscaleEnhance:
         )
         return build_face_enhancer(build_cfg)
 
+    def _get_resident_upsampler(self):
+        if self.cfg.upscale in (0, 1):
+            return None
+        with _RESIDENT_LOCK:
+            key = self._upsampler_cache_key()
+            cached = _UPSAMPLER_CACHE.get(key)
+            if cached is not None:
+                logger.info(
+                    f"Upscaler cache HIT mode={self.cfg.mode} upscale={self.cfg.upscale} device={self.device}"
+                )
+                return cached
+            lt = time.time()
+            upscaler = self._load_upscaler()
+            _UPSAMPLER_CACHE[key] = upscaler
+            logger.info(
+                f"Upscaler loaded in {round(time.time()-lt, 3)}s "
+                f"(resident) mode={self.cfg.mode} upscale={self.cfg.upscale} device={self.device}"
+            )
+            return upscaler
+
+    def _get_resident_face_enhancer(self, upsampler):
+        if not self.cfg.face_enhance:
+            return None
+        with _RESIDENT_LOCK:
+            key = self._face_cache_key(upsampler)
+            cached = _FACE_ENHANCER_CACHE.get(key)
+            if cached is not None:
+                backend_name = cached.__class__.__name__
+                logger.info(f"FaceEnhancer cache HIT backend={backend_name}")
+                return cached
+            lt = time.time()
+            try:
+                enhancer = self._load_face_enhance(upsampler)
+                if enhancer is None:
+                    raise RuntimeError("face_enhance backend is not available")
+            except Exception as e:
+                logger.warning(f"FaceEnhancer init failed, disable face_enhance for this call: {e}")
+                return None
+            _FACE_ENHANCER_CACHE[key] = enhancer
+            backend_name = enhancer.__class__.__name__
+            logger.info(
+                f"FaceEnhancer loaded backend={backend_name} in {round(time.time()-lt, 3)}s (resident)"
+            )
+            return enhancer
+
     def _maybe_downscale(self, img: Image.Image) -> Image.Image:
         try:
             safe_pixels = int(os.environ.get("TONERA_UPSCALE_SAFE_PIXELS", "4000000"))
@@ -214,27 +299,8 @@ class UpscaleEnhance:
         t0 = time.time()
         results: List[Image.Image] = []
 
-        # prepare upsampler/face enhancer once per call
-        if self.cfg.upscale in (0, 1):
-            self._upsampler = None
-        else:
-            lt = time.time()
-            self._upsampler = self._load_upscaler()
-            logger.info(f"Upscaler loaded in {round(time.time()-lt,3)}s")
-
-        if self.cfg.face_enhance:
-            lt = time.time()
-            try:
-                self._face_enhancer = self._load_face_enhance(self._upsampler)
-                if self._face_enhancer is None:
-                    raise RuntimeError("face_enhance backend is not available")
-                backend_name = getattr(self._face_enhancer, "__class__", type("X", (), {})).__name__
-                logger.info(f"FaceEnhancer loaded backend={backend_name} in {round(time.time()-lt,3)}s")
-            except Exception as e:
-                logger.warning(f"FaceEnhancer init failed, disable face_enhance for this call: {e}")
-                self._face_enhancer = None
-        else:
-            self._face_enhancer = None
+        self._upsampler = self._get_resident_upsampler()
+        self._face_enhancer = self._get_resident_face_enhancer(self._upsampler)
 
         for img in images:
             try:
@@ -255,15 +321,6 @@ class UpscaleEnhance:
             except Exception as e:
                 logger.warning(f"upscale/face_enhance failed, returning original: {e}")
                 results.append(img)
-
-        # release per-call refs
-        self._face_enhancer = None
-        self._upsampler = None
-        try:
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-        except Exception:
-            pass
 
         logger.info(
             f"UpscaleEnhance total={round(time.time()-t0,3)}s images={len(images)} "

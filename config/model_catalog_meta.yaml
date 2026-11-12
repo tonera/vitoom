@@ -98,3 +98,5 @@ families:
     label: GLM-OCR
   - id: TranslateGemma
     label: TranslateGemma
+  - id: minimax_h3
+    label: minimax_h3

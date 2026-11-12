@@ -43,9 +43,18 @@ class VideoInferrer(BaseInferrer):
     async def _release_cached_pipeline(self, obj: Any) -> None:
         """
         PipelineCache 的统一驱逐释放入口：
+        - MiniMax-H3: 只丢弃引用，不能落到 Wan2 的 .to("cpu")
         - Wan2: release_wan2_pipeline_twice_async
         - TurboDiffusion: release_turbo_models_twice_async
         """
+        from video.handlers.minimax_h3.models import H3Models
+
+        if isinstance(obj, H3Models):
+            from video.handlers.minimax_h3.release import release_h3_models_async
+
+            await release_h3_models_async(obj, log=logger, run_blocking=self.run_blocking)
+            return
+
         # 与推理线程一致的释放路径，避免“TTL 驱逐日志有了但显存不掉”的观感
         try:
             name = getattr(getattr(obj, "__class__", None), "__name__", "")
@@ -135,6 +144,32 @@ class VideoInferrer(BaseInferrer):
             raise RuntimeError("ResultHandler not initialized")
 
         try:
+            from video.handlers.minimax_h3.request import is_minimax_h3_family
+
+            # H3 必须在 job_type / fast_mode 之前截住，否则会被送进 Wan2。
+            if is_minimax_h3_family(getattr(params, "family", None)):
+                jt = (params.job_type or "").strip().upper()
+                if jt not in {JT_MKV, JT_INP}:
+                    raise ValueError(f"H3 不支持该任务类型: {params.job_type}")
+                from video.handlers.minimax_h3.mkv_handler import MiniMaxH3MkvHandler
+
+                handler = MiniMaxH3MkvHandler(
+                    inference_config=self.inference_config,
+                    result_handler=self.result_handler,
+                    service_id=self.service_id,
+                    logger=logger,
+                    run_blocking=self.run_blocking,
+                    check_cancelled=lambda stage: self._check_cancelled(task_id, stage),
+                    is_task_cancelled=cancel_event.is_set if cancel_event is not None else (lambda: False),
+                    pipeline_cache=self.pipeline_cache,
+                )
+                await handler.run(params, task_id=task_id)
+                if self.task_processor and self.task_processor.is_task_cancelled(task_id):
+                    await self.task_processor.report_cancelled(task_id)
+                else:
+                    await self._send_task_status(task_id, "completed")
+                return
+
             # 当前实现：Wan2 专用 handler 路由（未来可扩展为 family registry）
             jt = (params.job_type or "").strip().upper()
             handler: Any

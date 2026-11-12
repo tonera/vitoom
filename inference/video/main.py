@@ -1,6 +1,7 @@
-"""
-视频推理器主程序入口
-"""
+import os
+
+# 分配器在进程第一次使用 CUDA 时读取该变量，必须早于 torch。
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 import asyncio
 import sys
