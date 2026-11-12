@@ -125,7 +125,9 @@ async def preprocess_inference_params(
                     f"{params.job_type} only supports flux_kontext / flux2_klein / flux3_klein / qwen.edit / qwen.image21 "
                     "or load_name=FLUX.1-Depth-dev / FLUX.1-Canny-dev"
                 )
-            if mv in EDITOR_MULTI_IMAGE_FAMILIES:
+            edit_act = str(getattr(params, "edit_act", "") or "").strip().lower()
+            # edit_act=style 且多张图时，每张单独出图，不是多图参考合成，不受参考图张数限制。
+            if mv in EDITOR_MULTI_IMAGE_FAMILIES and edit_act != "style":
                 limit = int(EDITOR_MULTI_IMAGE_LIMITS[mv])
                 if len(tpl_list) > limit:
                     raise ValueError(f"{params.job_type} supports at most {limit} input images for family={mv}")

@@ -19,7 +19,7 @@ from typing import Any, Callable, Optional
 
 import torch
 
-from common.image_utils import calc_fit_size_with_multiple, constrain_size
+from common.image_utils import calc_fit_size_with_multiple, constrain_size, load_image
 from common.pipeline_component_injector import build_component_overrides
 from common.task_cancel import TaskCancelledError
 from image.runtime.controlnet_image_builder import ControlnetImageBuildError, build_controlnet_image
@@ -42,6 +42,7 @@ class IterationSpec:
     index: int
     seed: int
     generator: Any
+    image_path: Optional[str] = None
     fail_on_empty: bool = False
 
 
@@ -74,8 +75,17 @@ class EditorHandler:
         inference_params: Optional[dict] = None
         failed = False
         oom_error = False
+        saved_tpl = None
+        edit_act = str(getattr(params, "edit_act", "") or "").strip().lower()
+        tpl_list = [str(x).strip() for x in (getattr(params, "tpl_list", None) or []) if str(x).strip()]
+        if edit_act == "style" and len(tpl_list) > 1:
+            # 管道只按一张图初始化。后面的循环再逐张替换，避免一次把整批图读进内存。
+            saved_tpl = list(getattr(params, "tpl_list", None) or [])
+            params.tpl_list = [tpl_list[0]]
         try:
             pipe, inference_params, device = await self._prepare_runtime(params)
+            if saved_tpl is not None:
+                params.tpl_list = saved_tpl
             specs = self._build_iteration_specs(params, device)
             await self._drive_iterations(
                 pipe=pipe,
@@ -96,6 +106,8 @@ class EditorHandler:
                     pass
             raise
         finally:
+            if saved_tpl is not None:
+                params.tpl_list = saved_tpl
             cache_key, cache_enabled = self.lifecycle.get_cache_state()
             try:
                 await finish_pipeline_use(
@@ -219,6 +231,16 @@ class EditorHandler:
         return pipe, inference_params, device
 
     def _build_iteration_specs(self, params: InferenceRequestParams, device: str) -> list[IterationSpec]:
+        edit_act = str(getattr(params, "edit_act", "") or "").strip().lower()
+        tpl_list = [str(x).strip() for x in (getattr(params, "tpl_list", None) or []) if str(x).strip()]
+        if edit_act == "style" and len(tpl_list) > 1:
+            seed = self.seed_manager.initial_seed(getattr(params, "seed", None))
+            generator = self.seed_manager.create_generator(device, seed)
+            return [
+                IterationSpec(index=i, seed=seed, generator=generator, image_path=path, fail_on_empty=True)
+                for i, path in enumerate(tpl_list)
+            ]
+
         if int(getattr(params, "generate_num", 1) or 1) > 1:
             specs: list[IterationSpec] = []
             for i in range(int(getattr(params, "generate_num", 1) or 1)):
@@ -247,6 +269,12 @@ class EditorHandler:
                 return
 
             iter_params = base_params.copy()
+            if spec.image_path:
+                image = load_image(spec.image_path)
+                if image is None:
+                    raise ValueError(f"style batch image is not loadable: {spec.image_path}")
+                current = base_params.get("image")
+                iter_params["image"] = [image] if isinstance(current, list) else image
             if self._supports_kwarg(sig, "generator"):
                 iter_params["generator"] = spec.generator
             iter_params = self._filter_kwargs_for_signature(sig, iter_params)
